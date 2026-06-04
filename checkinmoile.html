@@ -495,12 +495,11 @@ function toast(m,t){var e=document.getElementById('toast');e.textContent=m;e.cla
 function fechar(id){document.getElementById(id).classList.remove('ab');}
 
 function abrirWhatsApp(tel,msg){
-  /* Garante formato 5538999... sem caracteres extras */
   tel=String(tel).replace(/\D/g,'');
   if(tel.length===11)tel='55'+tel;
-  /* api.whatsapp.com/send funciona em WebView, browser e app */
-  var url='https://api.whatsapp.com/send?phone='+tel+(msg?'&text='+encodeURIComponent(msg):'');
-  window.location.href=url;
+  /* wa.me funciona em desktop (abre WhatsApp Web) e mobile (abre app) */
+  var url='https://wa.me/'+tel+(msg?'?text='+encodeURIComponent(msg):'');
+  window.open(url,'_blank');
 }
 
 /* ── ABAS ── */
@@ -638,6 +637,28 @@ function tirarFoto(){
   c.toBlob(function(b){_fotos.push({blob:b,url:URL.createObjectURL(b)});atualizarGrid();toast('📸 Foto tirada!','ok');},'image/jpeg',.85);
 }
 
+/* ── COMPRIME FOTO ── */
+function comprimirFoto(blob,maxPx,qualidade){
+  return new Promise(function(resolve){
+    var img=new Image();
+    var objUrl=URL.createObjectURL(blob);
+    img.onload=function(){
+      URL.revokeObjectURL(objUrl);
+      var w=img.width,h=img.height;
+      if(w>maxPx||h>maxPx){
+        if(w>h){h=Math.round(h*maxPx/w);w=maxPx;}
+        else{w=Math.round(w*maxPx/h);h=maxPx;}
+      }
+      var c=document.createElement('canvas');
+      c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      c.toBlob(function(b){resolve(b);},'image/jpeg',qualidade||0.82);
+    };
+    img.onerror=function(){resolve(blob);};/* fallback sem compressão */
+    img.src=objUrl;
+  });
+}
+
 /* ── SALVAR ── */
 async function _salvar(zap){
   if(!_clienteSel){toast('Selecione um cliente!','er');return;}
@@ -707,14 +728,17 @@ async function _salvar(zap){
     /* Upload fotos */
     var urls=[];
     for(var i=0;i<_fotos.length;i++){
-      var nome_arq=ciId+'_'+Date.now()+'_'+i+'.jpg';
-      var up=await db.storage.from(BUCKET).upload(nome_arq,_fotos[i].blob,{contentType:'image/jpeg',upsert:true});
-      if(!up.error){
+      try{
+        /* Comprime para max 1200px antes do upload */
+        var blobFinal=await comprimirFoto(_fotos[i].blob,1200,0.82);
+        var nome_arq='ci_'+ciId+'_'+i+'_'+Date.now()+'.jpg';
+        var up=await db.storage.from(BUCKET).upload(nome_arq,blobFinal,{contentType:'image/jpeg',upsert:true});
+        if(up.error){console.error('Upload foto '+i+':',up.error);toast('⚠️ Foto '+(i+1)+' falhou: '+up.error.message,'er');continue;}
         var pu=db.storage.from(BUCKET).getPublicUrl(nome_arq);
         var url=pu.data.publicUrl;
         urls.push(url);
         await db.from('checkin_fotos').insert({checkin_id:ciId,url});
-      }
+      }catch(ef){console.error('Erro foto '+i,ef);toast('⚠️ Foto '+(i+1)+' erro: '+ef.message,'er');}
     }
 
     toast('✅ Check-in #'+ciId+' salvo! OS: '+num,'ok');
