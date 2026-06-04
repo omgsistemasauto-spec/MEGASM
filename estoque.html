@@ -1,0 +1,3549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerenciamento de Estoque</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --azul:#004aad;--azul2:#5271ff;--verde:#28a745;
+  --amarelo:#ffc107;--vermelho:#dc3545;--cinza:#f4f6fa;
+  --borda:#dcdcdc;--sombra:0 2px 12px rgba(0,0,0,.13)
+}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--cinza);color:#222;min-height:100vh}
+
+header{background:var(--azul);color:#fff;display:flex;align-items:center;
+  justify-content:space-between;padding:0 24px;height:56px;box-shadow:var(--sombra)}
+header h1{font-size:1.1rem;font-weight:700}
+
+.abas{display:flex;align-items:center;flex-wrap:wrap;background:var(--azul);padding:0 16px;gap:4px}
+.aba{display:inline-flex;align-items:center;justify-content:center;background:transparent;border:none;color:rgba(255,255,255,.65);
+  padding:12px 22px;cursor:pointer;font-size:.9rem;font-weight:600;
+  border-bottom:3px solid transparent;transition:.18s;white-space:nowrap;flex:0 0 auto}
+.aba.ativa{color:#fff;border-bottom-color:var(--amarelo)}
+.aba:hover:not(.ativa){color:#fff;background:rgba(255,255,255,.08)}
+
+.painel{display:none}.painel.ativo{display:block}
+
+.barra{background:var(--azul);color:#fff;display:flex;align-items:center;
+  flex-wrap:wrap;gap:10px;padding:10px 20px}
+.btit{font-size:1rem;font-weight:700;margin-right:auto}
+.busca{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);
+  border-radius:6px;padding:5px 12px}
+.busca input{background:transparent;border:none;outline:none;color:#fff;
+  width:200px;font-size:.88rem}
+.busca input::placeholder{color:rgba(255,255,255,.5)}
+
+.btn{border:none;border-radius:6px;padding:7px 15px;cursor:pointer;
+  font-size:.84rem;font-weight:600;transition:.14s;white-space:nowrap}
+.btn:hover{opacity:.86;transform:translateY(-1px)}
+.bv{background:var(--verde);color:#fff}
+.ba{background:#007bff;color:#fff}
+.ba2{background:var(--azul2);color:#fff}
+.bam{background:var(--amarelo);color:#222}
+.br{background:var(--vermelho);color:#fff}
+.bc{background:#6c757d;color:#fff}
+.bsm{padding:4px 10px;font-size:.78rem}
+
+.tw{overflow-x:auto;background:#fff;border-radius:8px;
+  box-shadow:var(--sombra);margin:16px}
+table{width:100%;border-collapse:collapse;font-size:.87rem}
+thead th{background:var(--azul2);color:#fff;font-weight:700;
+  padding:10px 12px;text-align:left;white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--borda);transition:background .12s}
+tbody tr:nth-child(even){background:#fafafa}
+tbody tr:hover{background:#eef2ff}
+tbody td{padding:8px 12px}
+.eb{color:var(--vermelho);font-weight:700}
+.ea{color:#e67e22;font-weight:700}
+.vz td{text-align:center;color:#aaa;padding:36px;font-style:italic}
+
+.inp-cel{width:100%;border:2px solid var(--azul2);border-radius:4px;
+  padding:2px 6px;font-size:.87rem;outline:none}
+
+.bd{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);
+  z-index:1000;align-items:flex-start;justify-content:center;padding-top:60px}
+.bd.ab{display:flex}
+.modal{background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.22);
+  width:460px;max-width:96vw;max-height:88vh;overflow-y:auto;
+  padding:28px 30px;position:relative;animation:ap .17s ease}
+@keyframes ap{from{transform:translateY(-18px);opacity:0}}
+.modal h2{font-size:1.05rem;color:var(--azul);margin-bottom:18px}
+.mf{position:absolute;top:13px;right:16px;background:none;border:none;
+  font-size:1.4rem;cursor:pointer;color:#777;line-height:1}
+.cmp{margin-bottom:13px}
+.cmp label{display:block;font-size:.8rem;font-weight:700;color:#555;margin-bottom:4px}
+.cmp input,.cmp select{width:100%;padding:8px 10px;border:1px solid var(--borda);
+  border-radius:6px;font-size:.88rem;outline:none;transition:border .14s}
+.cmp input:focus,.cmp select:focus{border-color:var(--azul2)}
+.cmp input[readonly]{background:#f4f6fa}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mac{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+
+#area-drop{border:2px dashed var(--azul2);border-radius:10px;
+  padding:30px;text-align:center;cursor:pointer;color:var(--azul2);
+  font-weight:600;margin-bottom:12px;transition:background .15s}
+#area-drop.drag{background:#eef2ff}
+#narq{font-size:.82rem;color:#666;margin-top:6px}
+#nfe-res{margin-top:10px;padding:12px 16px;border-radius:6px;
+  font-size:.85rem;white-space:pre-line;display:none}
+#nfe-res.ok{background:#d4edda;color:#155724}
+#nfe-res.er{background:#f8d7da;color:#721c24}
+
+#toast{position:fixed;bottom:28px;right:28px;z-index:9999;
+  color:#fff;padding:12px 22px;border-radius:8px;font-size:.9rem;
+  display:none;box-shadow:var(--sombra)}
+#toast.vis{display:block}
+#toast.ok{background:var(--verde)}
+#toast.er{background:var(--vermelho)}
+#toast.av{background:#e67e22}
+</style>
+<link rel="stylesheet" href="sidebar.css">
+</head>
+<body>
+
+<header>
+  <h1>📦 Sistema de Gerenciamento de Estoque</h1>
+  <span>👤 Admin</span>
+</header>
+
+<!-- ── TOKEN TRACKER ── -->
+<div id="token-bar" style="background:#1e1e2e;color:#cdd6f4;font-size:.75rem;
+  display:flex;align-items:center;gap:16px;padding:5px 18px;flex-wrap:wrap;cursor:pointer"
+  onclick="toggleTokenDetail()" title="Clique para ver detalhes">
+  <span style="font-weight:700;color:#89b4fa">🤖 Gemini IA</span>
+  <span>📥 Input: <b id="tk-in">0</b> tokens</span>
+  <span>📤 Output: <b id="tk-out">0</b> tokens</span>
+  <span>🔢 Total: <b id="tk-tot">0</b> tokens</span>
+  <span>💰 Custo: <b id="tk-custo">$0.000000</b></span>
+  <span style="color:#a6e3a1">⚡ <b id="tk-calls">0</b> consultas</span>
+  <span style="margin-left:auto;color:#585b70;font-size:.68rem">▼ detalhes</span>
+</div>
+<div id="token-detail" style="display:none;background:#181825;color:#cdd6f4;
+  padding:10px 18px;font-size:.75rem;border-bottom:1px solid #313244">
+  <div style="font-weight:700;color:#89b4fa;margin-bottom:6px">📊 Histórico de consultas</div>
+  <div id="token-log" style="max-height:120px;overflow-y:auto;font-family:monospace;font-size:.72rem"></div>
+  <div style="margin-top:8px;display:flex;gap:12px">
+    <span style="color:#585b70">Gemini 2.0 Flash — gratuito no tier free</span>
+    <button onclick="resetTokens(event)" style="background:#f38ba8;border:none;color:#1e1e2e;
+      border-radius:4px;padding:2px 8px;cursor:pointer;font-size:.7rem;font-weight:700">🗑 Zerar</button>
+  </div>
+</div>
+<div class="abas">
+  <button class="aba ativa" onclick="aba('itens')">📦 Itens Detalhados</button>
+  <button class="aba"       onclick="aba('edicao')">📝 Edição Rápida</button>
+  <button class="aba"       onclick="aba('historico')">📜 Histórico NF-e</button>
+  <button class="aba"       onclick="aba('gestao')" style="background:rgba(220,53,69,.25)">🚨 Gestão de Estoque</button>
+  <button class="aba" id="aba-margem" onclick="aba('margem')" style="background:rgba(255,193,7,.3);animation:piscaMargem 2s infinite">💰 Margem Baixa <span id="badge-margem" style="background:#dc3545;color:#fff;border-radius:10px;padding:1px 7px;font-size:.75rem;margin-left:4px;display:none">0</span></button>
+</div>
+
+<!-- ── ITENS ── -->
+<div id="p-itens" class="painel ativo">
+  <div class="barra">
+    <span class="btit">📦 Gerenciamento de Itens</span>
+    <div class="busca">🔍<input id="bi" placeholder="Pesquisar..." oninput="pesqItens()"></div>
+    <button class="btn bv"  onclick="abrirNfe()">📄 Importar NF-e</button>
+    <button class="btn bam" onclick="aba('edicao')">⚡ Edição Rápida</button>
+    <button class="btn ba"  onclick="abrirForm(null)">➕ Novo Item</button>
+    <button class="btn" onclick="abrirModalGerarImagens()"
+      style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:.83rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+      🖼️ Gerar Imagens com IA
+    </button>
+    <button class="btn" onclick="abrirModalGerarBarcodes()"
+      style="background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:.83rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+      📊 Gerar Códigos de Barras
+    </button>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th>Código</th><th>Foto</th><th>Nome</th><th>Unidade</th><th>Valor Unit.</th>
+        <th>Estoque</th><th>Valor Total</th><th>Mín</th><th>Máx</th>
+        <th>Data Criação</th><th>Último Fornecedor</th><th>CNPJ</th><th>Preço Venda / Margem</th><th>Ações</th>
+      </tr></thead>
+      <tbody id="ti"><tr class="vz"><td colspan="14">Carregando...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── EDIÇÃO RÁPIDA ── -->
+<div id="p-edicao" class="painel">
+  <div class="barra" style="background:#e67e22">
+    <span class="btit">📝 Edição Rápida — duplo clique para editar Marca / Aplicação / Estoque / Preço Venda</span>
+    <div class="busca" style="background:rgba(255,255,255,.25)">
+      🔍<input id="be" placeholder="Pesquisar..." oninput="pesqEdicao()">
+    </div>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th>Código</th><th>Item</th><th>Marca</th><th>Aplicação</th><th>Estoque</th><th>Preço Venda</th>
+      </tr></thead>
+      <tbody id="te"><tr class="vz"><td colspan="6">Carregando...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── HISTÓRICO ── -->
+<div id="p-historico" class="painel">
+  <div class="barra" style="background:#8e44ad">
+    <span class="btit" style="color:#fff">📜 Histórico de NF-e Importadas</span>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th>Chave NF-e</th><th>Arquivo</th><th>Data</th><th>Qtd Itens</th>
+        <th>Empresa Emitente</th><th>Valor Total</th><th>Ações</th>
+      </tr></thead>
+      <tbody id="th"><tr class="vz"><td colspan="7">Carregando...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── GESTÃO DE ESTOQUE ── -->
+<div id="p-gestao" class="painel">
+
+  <!-- Barra de filtros -->
+  <div class="barra" style="background:#c0392b;flex-wrap:wrap;gap:10px;padding:12px 20px">
+    <span class="btit">🚨 Gestão de Estoque</span>
+
+    <!-- Filtro: Situação -->
+    <div style="display:flex;gap:4px">
+      <button id="fg-falta"      class="btn" onclick="setFiltroSit('falta')"
+        style="background:#fff;color:#c0392b;font-weight:700">⚠️ Em Falta</button>
+      <button id="fg-critico"    class="btn" onclick="setFiltroSit('critico')"
+        style="background:rgba(255,255,255,.2);color:#fff">🔴 Crítico</button>
+      <button id="fg-disponivel" class="btn" onclick="setFiltroSit('disponivel')"
+        style="background:rgba(255,255,255,.2);color:#fff">🟢 Disponível</button>
+      <button id="fg-todos"      class="btn" onclick="setFiltroSit('todos')"
+        style="background:rgba(255,255,255,.2);color:#fff">📋 Todos</button>
+    </div>
+
+    <!-- Filtro: Marca do carro -->
+    <select id="fg-marca" onchange="aplicarFiltrosGestao()"
+      style="padding:6px 10px;border:none;border-radius:6px;font-size:.85rem;min-width:150px">
+      <option value="">🚗 Todas as marcas</option>
+    </select>
+
+    <!-- Filtro: Nome do carro -->
+    <div class="busca" style="background:rgba(255,255,255,.2)">
+      🔍<input id="fg-carro" placeholder="Modelo do carro..." oninput="aplicarFiltrosGestao()"
+        style="width:160px">
+    </div>
+
+    <!-- Filtro: Nome/código do item -->
+    <div class="busca" style="background:rgba(255,255,255,.2)">
+      📦<input id="fg-item" placeholder="Código ou nome..." oninput="aplicarFiltrosGestao()"
+        style="width:160px">
+    </div>
+
+    <!-- Filtro: Categoria -->
+    <select id="fg-cat" onchange="aplicarFiltrosGestao()"
+      style="padding:6px 10px;border:none;border-radius:6px;font-size:.85rem;min-width:170px">
+      <option value="">📦 Todas as categorias</option>
+    </select>
+
+    <button class="btn" onclick="limparFiltrosGestao()"
+      style="background:rgba(255,255,255,.15);color:#fff">✕ Limpar</button>
+  </div>
+
+  <!-- Cards de resumo -->
+  <div style="display:flex;gap:12px;padding:14px 16px;flex-wrap:wrap">
+    <div id="gc-falta"      class="gcard" style="background:#f8d7da;border-left:4px solid #dc3545;color:#721c24"></div>
+    <div id="gc-critico"    class="gcard" style="background:#fff3cd;border-left:4px solid #ffc107;color:#856404"></div>
+    <div id="gc-disponivel" class="gcard" style="background:#d4edda;border-left:4px solid #28a745;color:#155724"></div>
+    <div id="gc-total"      class="gcard" style="background:#d1ecf1;border-left:4px solid #17a2b8;color:#0c5460"></div>
+  </div>
+
+  <!-- Tabela -->
+  <div class="tw" style="margin-top:0">
+    <table>
+      <thead><tr>
+        <th>Situação</th><th>Categoria</th><th>Código</th><th>Nome</th><th>Marca Peça</th>
+        <th>Aplicação</th><th>Estoque</th><th>Mín</th><th>Máx</th>
+        <th>Valor Unit.</th><th>Preço Venda</th><th>Ações</th>
+      </tr></thead>
+      <tbody id="tg"><tr class="vz"><td colspan="12">Clique na aba para carregar...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── MARGEM BAIXA ── -->
+<div id="p-margem" class="painel">
+  <div class="barra" style="background:linear-gradient(90deg,#b8860b,#d4a017);flex-wrap:wrap;gap:10px;padding:12px 20px">
+    <span class="btit">💰 Alerta de Markup Baixo — abaixo de 40% sobre custo</span>
+    <div class="busca" style="background:rgba(255,255,255,.25)">
+      🔍<input id="bm" placeholder="Pesquisar..." oninput="pesqMargem()">
+    </div>
+    <button class="btn" onclick="carregarMargem()" style="background:rgba(255,255,255,.2);color:#fff">🔄 Atualizar</button>
+    <button id="btn-preview-todos" class="btn" onclick="ativarPreviewTodos()"
+      style="background:#7c3aed;color:#fff;font-weight:700">👁 Preview Todos</button>
+    <button id="btn-salvar-todos" class="btn bv" onclick="salvarTodosMargem()" style="display:none;font-weight:700">
+      💾 Salvar Todos (<span id="cnt-salvar">0</span>)
+    </button>
+    <button id="btn-cancelar-prev" class="btn bc" onclick="cancelarPreview()" style="display:none">✕ Cancelar</button>
+  </div>
+
+  <!-- Banner modo preview -->
+  <div id="banner-preview" style="display:none;background:#7c3aed;color:#fff;padding:10px 20px;
+    font-size:.88rem;font-weight:700;display:none;align-items:center;gap:16px;flex-wrap:wrap">
+    <span>👁 MODO PREVISÃO — preços sugeridos para 40% de margem. Revise e clique em 💾 Salvar Todos para aplicar.</span>
+    <span id="prev-resumo" style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px"></span>
+  </div>
+
+  <!-- Cards resumo -->
+  <div style="display:flex;gap:12px;padding:14px 16px;flex-wrap:wrap">
+    <div id="mc-critico" class="gcard" style="background:#f8d7da;border-left:4px solid #dc3545;color:#721c24"></div>
+    <div id="mc-atencao" class="gcard" style="background:#fff3cd;border-left:4px solid #ffc107;color:#856404"></div>
+    <div id="mc-baixo"   class="gcard" style="background:#ffe5cc;border-left:4px solid #fd7e14;color:#7d3000"></div>
+    <div id="mc-ok"      class="gcard" style="background:#d4edda;border-left:4px solid #28a745;color:#155724"></div>
+    <div id="mc-sem"     class="gcard" style="background:#e2e3e5;border-left:4px solid #6c757d;color:#383d41"></div>
+  </div>
+
+  <!-- Legenda -->
+  <div style="background:#fffbeb;border-bottom:1px solid #f9c74f;padding:8px 20px;font-size:.8rem;color:#854d0e;display:flex;gap:20px;flex-wrap:wrap">
+    <span>🔴 <strong>Markup negativo</strong> — vendendo no prejuízo</span>
+    <span>🟡 <strong>Markup 1–19%</strong> — crítico</span>
+    <span>🟠 <strong>Markup 20–39%</strong> — abaixo do limite de 40%</span>
+    <span>✅ <strong>Markup ≥ 40%</strong> — dentro do esperado</span>
+    <span style="margin-left:auto;background:#e8a800;color:#222;padding:2px 10px;border-radius:6px;font-weight:700">💡 Duplo clique em <u>Preço Venda</u> ou <u>Novo Preço</u> para editar</span>
+  </div>
+
+  <div class="tw" style="margin-top:0">
+    <table>
+      <thead><tr>
+        <th>Alerta</th><th>Código</th><th>Nome</th><th>Marca</th>
+        <th>Custo (Unit.)</th>
+        <th style="background:#e8a800;color:#222" title="Duplo clique para editar">Preço Venda 💡</th>
+        <th>Margem %</th>
+        <th id="th-novo-preco" style="background:#7c3aed;color:#fff" title="Duplo clique para editar">Novo Preço (40%) 💡</th>
+        <th>Lucro Unit.</th>
+        <th style="background:#0f766e;color:#fff">📄 Nota Fiscal</th>
+      </tr></thead>
+      <tbody id="tm"><tr class="vz"><td colspan="10">Clique na aba para carregar...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+.gcard{border-radius:8px;padding:12px 18px;min-width:160px;flex:1;font-size:.88rem;line-height:1.6}
+.gcard strong{display:block;font-size:1.5rem;font-weight:800}
+@keyframes piscaMargem{0%,100%{background:rgba(255,193,7,.3)}50%{background:rgba(220,53,69,.45)}}
+.margem-critico{background:#f8d7da !important}
+.margem-atencao{background:#fff3cd !important}
+.margem-baixa{background:#fdebd0 !important}
+.badge-m{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.78rem;font-weight:700;white-space:nowrap}
+.badge-m.cr{background:#dc3545;color:#fff}
+.badge-m.at{background:#ffc107;color:#222}
+.badge-m.bx{background:#fd7e14;color:#fff}
+.badge-m.ok{background:#28a745;color:#fff}
+.badge-m.sz{background:#6c757d;color:#fff}
+.prev-novo{background:#f0e6ff !important}
+.prev-cell{color:#7c3aed;font-weight:800;font-size:.92rem}
+.prev-cell.aplicado{color:#28a745}
+.nf-cell{max-width:160px;overflow:hidden}
+.nf-cell:hover{background:#f0fdf4 !important;cursor:default}
+</style>
+
+<!-- ── MODAL CONFIRMAÇÃO MARGEM BAIXA ── -->
+<div class="bd" id="modal-margem-confirm">
+  <div class="modal" style="width:520px;padding:0;overflow:hidden">
+    <!-- header -->
+    <div style="background:#dc3545;color:#fff;padding:18px 24px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:1.6rem">⚠️</span>
+      <div>
+        <div style="font-size:1rem;font-weight:800">Margem abaixo de 40%</div>
+        <div style="font-size:.78rem;opacity:.85" id="mmc-subtitulo">Confirme item por item para prosseguir</div>
+      </div>
+    </div>
+    <!-- lista de itens -->
+    <div style="padding:16px 20px;max-height:340px;overflow-y:auto" id="mmc-lista"></div>
+    <!-- rodapé -->
+    <div style="padding:14px 20px;background:#f8f9fa;border-top:1px solid #dee2e6;display:flex;justify-content:flex-end;gap:10px">
+      <button class="btn bc" onclick="mmcCancelar()">✕ Cancelar</button>
+      <button class="btn" id="mmc-btn-ok"
+        style="background:#dc3545;color:#fff"
+        onclick="mmcConfirmar()">✅ Confirmar todos e salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL NOVO/EDITAR ITEM ── -->
+<div class="bd" id="mf">
+  <div class="modal" style="width:500px">
+    <button class="mf" onclick="fecharForm()">✕</button>
+    <h2 id="mf-titulo">➕ Novo Item</h2>
+
+    <div class="cmp"><label>Código *</label><input id="fc" readonly></div>
+    <div class="cmp">
+      <label>Nome *</label>
+      <input id="fn" placeholder="Nome do item" oninput="buscaSug()" onkeydown="tecladoSug(event)">
+      <div id="sug" style="border:1px solid var(--borda);border-radius:4px;display:none;
+        max-height:100px;overflow-y:auto;background:#fff;position:relative;z-index:20"></div>
+    </div>
+    <div class="cmp">
+      <label>Unidade *</label>
+      <select id="fu" onchange="mudaUnidade()"><option value="UN">UN</option><option value="CX">CX</option></select>
+    </div>
+    <div class="cmp" id="cmp-caixa" style="display:none">
+      <label>Qtd. por Caixa</label><input type="number" id="fqc" value="1" min="1">
+    </div>
+    <div class="g2">
+      <div class="cmp"><label>Estoque Atual</label><input type="number" id="fe" value="0" min="0"></div>
+      <div class="cmp"><label>Valor Unitário (R$)</label><input type="number" id="fv" value="0.00" step="0.01" min="0" oninput="atualizarBadgeFpv()"></div>
+    </div>
+    <div class="g2">
+      <div class="cmp">
+        <label>Preço de Venda (R$) <span id="fpv-margem-badge" style="font-size:.75rem;font-weight:700;margin-left:6px;padding:1px 7px;border-radius:8px;display:none"></span></label>
+        <input type="number" id="fpv" value="0.00" step="0.01" min="0" oninput="atualizarBadgeFpv()" style="transition:border .2s,background .2s">
+        <div id="fpv-hint" style="font-size:.75rem;margin-top:3px;display:none"></div>
+      </div>
+      <div class="cmp"><label>Marca da Peça</label><input type="text" id="fmarca" placeholder="Ex: Bosch, NGK..."></div>
+    </div>
+    <div class="g2">
+      <div class="cmp"><label>Estoque Mínimo</label><input type="number" id="fmin" value="0" min="0"></div>
+      <div class="cmp"><label>Estoque Máximo</label><input type="number" id="fmax" value="1000" min="0"></div>
+    </div>
+
+    <!-- Categoria -->
+    <div class="cmp">
+      <label>Categoria</label>
+      <select id="fcat" style="width:100%;padding:8px 10px;border:1px solid var(--borda);border-radius:6px;font-size:.88rem">
+        <option value="">— Selecione a categoria —</option>
+      </select>
+    </div>
+
+    <!-- Aplicação -->
+    <div class="cmp">
+      <label>Aplicação (marcas e modelos de carros)</label>
+      <!-- Status IA -->
+      <div id="ai-status" style="display:none;font-size:.75rem;margin-bottom:6px;
+        padding:6px 10px;border-radius:6px;background:#eef2ff;color:var(--azul2)">
+        🤖 Consultando Gemini...
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="fapl" readonly placeholder="Clique em Editar ou use IA para preencher..."
+          style="flex:1;background:#f9f9f9;cursor:default">
+        <button class="btn ba2" type="button" onclick="abrirAplForm()" style="white-space:nowrap">🚗 Editar</button>
+        <button class="btn" type="button" onclick="sugerirAplicacaoIA()"
+          title="Preencher aplicação automaticamente com IA"
+          style="white-space:nowrap;background:linear-gradient(135deg,#6e40c9,#5271ff);color:#fff;padding:8px 12px">
+          🤖 IA
+        </button>
+      </div>
+    </div>
+
+    <input type="hidden" id="fmodo">
+    <input type="hidden" id="forig">
+    <div class="mac">
+      <button class="btn bc" onclick="fecharForm()">Cancelar</button>
+      <button class="btn bv" id="btn-salvar" onclick="salvarItem()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL NF-e: UPLOAD ── -->
+<div class="bd" id="mn">
+  <div class="modal">
+    <button class="mf" onclick="fecharNfe()">✕</button>
+    <h2>📄 Importar NF-e (XML)</h2>
+    <div id="area-drop" onclick="document.getElementById('finp').click()">
+      📂 Clique ou arraste o arquivo XML aqui
+      <div id="narq">Nenhum arquivo selecionado</div>
+    </div>
+    <input type="file" id="finp" accept=".xml" style="display:none" onchange="selecionarArq(event)">
+    <div id="nfe-res"></div>
+    <div class="mac">
+      <button class="btn bc" onclick="fecharNfe()">Fechar</button>
+      <button class="btn bv" id="btn-imp" onclick="previewNfe()" disabled>🔍 Visualizar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TELA FULLSCREEN: PREVIEW NF-e ── -->
+<div id="tela-prev" style="display:none;position:fixed;inset:0;background:#f4f6fa;z-index:2000;
+  flex-direction:column;overflow:hidden">
+
+  <!-- Header da tela -->
+  <div style="background:var(--azul);color:#fff;padding:0 24px;height:56px;
+    display:flex;align-items:center;gap:16px;flex-shrink:0;box-shadow:var(--sombra)">
+    <span style="font-size:1.1rem;font-weight:700">📋 Preview NF-e — Revise e edite antes de importar</span>
+    <div id="prev-info-topo" style="font-size:.83rem;opacity:.85;margin-right:auto"></div>
+    <button class="btn bc" onclick="fecharPreview()" style="padding:6px 16px">← Voltar</button>
+    <button class="btn bv" id="btn-confirmar" onclick="confirmarImportacao()" style="padding:6px 20px;font-size:.95rem">✅ Confirmar Importação</button>
+  </div>
+
+  <!-- Cabeçalho NF -->
+  <div id="prev-cabecalho" style="background:#fff;border-bottom:1px solid var(--borda);
+    padding:10px 24px;display:flex;gap:32px;flex-shrink:0;flex-wrap:wrap;font-size:.85rem"></div>
+
+  <!-- Legenda colunas editáveis -->
+  <div style="background:#e8f4fd;border-bottom:1px solid #bee3f8;padding:6px 24px;
+    font-size:.78rem;color:#1a56db;flex-shrink:0">
+    💡 As colunas com fundo <span style="background:#fffde7;padding:1px 6px;border-radius:3px;border:1px solid #f9c74f">amarelo</span>
+    são editáveis — clique para editar diretamente na tabela.
+  </div>
+
+  <!-- Tabela scrollável -->
+  <div style="flex:1;overflow:auto;padding:16px 24px">
+    <table id="prev-tabela" style="width:100%;border-collapse:collapse;font-size:.83rem;
+      background:#fff;border-radius:8px;box-shadow:var(--sombra);min-width:1100px">
+      <thead>
+        <tr style="background:var(--azul2);color:#fff;position:sticky;top:0;z-index:10">
+          <th style="padding:10px 8px;text-align:left;white-space:nowrap">#</th>
+          <th style="padding:10px 8px;text-align:left">Código</th>
+          <th style="padding:10px 8px;text-align:left;min-width:200px">Nome</th>
+          <th style="padding:10px 8px;text-align:center">Unid.NF</th>
+          <th style="padding:10px 8px;text-align:center">Qtd.NF</th>
+          <th style="padding:10px 8px;text-align:center;background:#1a56db">Tipo</th>
+          <th style="padding:10px 8px;text-align:center;background:#1a56db">Qtd/Cx</th>
+          <th style="padding:10px 8px;text-align:center">Estoque+</th>
+          <th style="padding:10px 8px;text-align:right">Vlr.Unit.NF</th>
+          <th style="padding:10px 8px;text-align:right;background:#1a56db">Vlr.Unit.Final</th>
+          <th style="padding:10px 8px;text-align:right;background:#e8a800;color:#222;min-width:110px">Preço Venda</th>
+          <th style="padding:10px 8px;text-align:left;background:#e8a800;color:#222;min-width:120px">Marca</th>
+          <th style="padding:10px 8px;text-align:left;background:#e8a800;color:#222;min-width:180px">Aplicação</th>
+          <th style="padding:10px 8px;text-align:left;background:#e8a800;color:#222;min-width:160px">Categoria</th>
+          <th style="padding:10px 8px;text-align:center">Situação</th>
+        </tr>
+      </thead>
+      <tbody id="prev-corpo"></tbody>
+      <tfoot>
+        <tr style="background:#f4f6fa;font-weight:700;position:sticky;bottom:0">
+          <td colspan="9" style="padding:10px 8px">Total da NF-e</td>
+          <td colspan="6" style="padding:10px 8px;text-align:right;font-size:1rem" id="prev-total"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<!-- ── MODAL SENHA ── -->
+<div class="bd" id="ms">
+  <div class="modal" style="width:360px">
+    <button class="mf" onclick="fecharSenha()">✕</button>
+    <h2>🔒 Senha de Administrador</h2>
+    <div class="cmp">
+      <label>Senha</label>
+      <input type="password" id="inp-senha" placeholder="••••••••"
+             onkeydown="if(event.key==='Enter')confirmarDesfazer()">
+    </div>
+    <div id="msg-erro-senha" style="color:var(--vermelho);font-size:.83rem;display:none">❌ Senha incorreta!</div>
+    <div class="mac">
+      <button class="btn bc" onclick="fecharSenha()">Cancelar</button>
+      <button class="btn br" onclick="confirmarDesfazer()">✔ Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL APLICAÇÃO ── -->
+<div class="bd" id="mma" style="z-index:3000">
+  <div class="modal" style="width:500px">
+    <button class="mf" onclick="fecharMarcaApl()">✕</button>
+    <h2>🚗 Aplicação do Item</h2>
+
+    <!-- Seleção de marca DO CARRO -->
+    <div class="cmp">
+      <label>Selecione a marca do carro (pode selecionar várias)</label>
+      <div id="lista-marcas" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <input id="nova-marca" placeholder="Outra marca de carro..."
+          style="flex:1;padding:6px 10px;border:1px solid var(--borda);border-radius:6px;font-size:.88rem;outline:none"
+          onkeydown="if(event.key==='Enter'){adicionarMarca();event.preventDefault()}">
+        <button class="btn ba2" onclick="adicionarMarca()">+ Add</button>
+      </div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--borda);margin:14px 0">
+
+    <!-- Modelos da marca ativa -->
+    <div id="secao-aplicacao" style="display:none">
+      <div class="cmp">
+        <label>Modelos de <span id="marca-ativa-label" style="color:var(--azul2);font-weight:700"></span></label>
+        <div style="display:flex;gap:6px">
+          <input id="inp-aplicacao" placeholder="Ex: Uno, Palio... (Enter ou ; para adicionar)"
+            style="flex:1;padding:6px 10px;border:1px solid var(--borda);border-radius:6px;font-size:.88rem;outline:none"
+            onkeydown="if(event.key==='Enter'){adicionarModelo();event.preventDefault()}">
+          <button class="btn ba2" onclick="adicionarModelo()">+ Add</button>
+        </div>
+        <div id="chips-aplicacao" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- Preview final -->
+    <div style="margin-top:10px;padding:10px 12px;background:#f4f6fa;border-radius:6px;font-size:.82rem;color:#555">
+      <strong>Resultado:</strong>
+      <div id="preview-aplicacao" style="margin-top:4px;color:#222;word-break:break-word">—</div>
+    </div>
+
+    <div class="mac">
+      <button class="btn bc" onclick="fecharMarcaApl()">Cancelar</button>
+      <button class="btn bv" onclick="salvarMarcaApl()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL GERAR IMAGENS -->
+
+<script>
+/* ══════════════════════════════════════════
+   BUSCAR IMAGENS — só itens SEM foto
+   Salva automaticamente produto a produto
+══════════════════════════════════════════ */
+var _imgItens=[], _gerandoImgs=false;
+
+async function abrirModalGerarImagens(){
+  document.getElementById('modal-imgs').classList.add('ab');
+  document.getElementById('imgs-prog-bar').style.width='0%';
+  document.getElementById('imgs-prog-txt').textContent='Carregando itens sem foto...';
+  document.getElementById('btn-gerar-imgs').disabled=false;
+  document.getElementById('btn-gerar-imgs').textContent='🚀 Buscar Imagens';
+  document.getElementById('btn-salvar-imgs').style.display='none';
+  if(!SERPER_KEY){ document.getElementById('serper-aviso').style.display='block'; return; }
+
+  /* Carrega SOMENTE itens sem foto_url */
+  _imgItens=[];
+  var pagina=0, tamPag=1000;
+  while(true){
+    var r=await db.from('itens')
+      .select('codigo,nome,marca,foto_url')
+      .is('foto_url',null)
+      .order('nome')
+      .range(pagina*tamPag,(pagina+1)*tamPag-1);
+    if(!r.data||!r.data.length) break;
+    _imgItens=_imgItens.concat(r.data);
+    if(r.data.length<tamPag) break;
+    pagina++;
+  }
+
+  var g=document.getElementById('imgs-grid');
+  if(!_imgItens.length){
+    g.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#6b7280;padding:48px;font-size:.95rem">✅ Todos os itens já têm foto!</div>';
+    document.getElementById('imgs-prog-txt').textContent='Nenhum item sem foto';
+    return;
+  }
+
+  var mins=Math.ceil(_imgItens.length*1.5/60);
+  document.getElementById('imgs-prog-txt').textContent=
+    _imgItens.length+' itens sem foto · ~'+mins+' min';
+
+  /* Renderiza grid só com itens sem foto */
+  g.innerHTML=_imgItens.map(function(it){
+    var k=it.codigo.replace(/[^a-zA-Z0-9]/g,'_');
+    return '<div class="ic" id="ic-'+k+'">'+
+      '<div class="ic-foto" id="icf-'+k+'">📦</div>'+
+      '<div class="ic-info">'+
+        '<div class="ic-nome" id="icn-'+k+'">'+eh(it.nome)+'</div>'+
+        '<div class="ic-cod">'+eh(it.codigo)+'</div>'+
+        '<div class="ic-status" id="ics-'+k+'" style="font-size:.58rem;margin-top:2px;color:#6b7280"></div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function fecharModalImgs(){
+  if(_gerandoImgs&&!confirm('Busca em andamento. Sair mesmo assim?')) return;
+  _gerandoImgs=false;
+  document.getElementById('modal-imgs').classList.remove('ab');
+}
+
+async function buscarImagem(nome,marca){
+  if(!SERPER_KEY) throw new Error('SERPER_KEY não configurada');
+  var r=await fetch('https://google.serper.dev/images',{
+    method:'POST',
+    headers:{'X-API-KEY':SERPER_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({q:nome+(marca?' '+marca:'')+' peça automotiva',gl:'br',hl:'pt',num:5})
+  });
+  if(!r.ok) throw new Error('Serper '+r.status);
+  var d=await r.json();
+  for(var i=0;i<(d.images||[]).length;i++){
+    var u=d.images[i].imageUrl||d.images[i].thumbnailUrl||'';
+    if(u&&u.startsWith('http')) return u;
+  }
+  return null;
+}
+
+async function gerarTodasImagens(){
+  if(!SERPER_KEY){document.getElementById('serper-aviso').style.display='block';return;}
+  if(_gerandoImgs) return;
+  if(!_imgItens.length){toast('Nenhum item sem foto!','av');return;}
+
+  _gerandoImgs=true;
+  document.getElementById('btn-gerar-imgs').disabled=true;
+  document.getElementById('btn-gerar-imgs').textContent='⏳ Buscando...';
+
+  var total=_imgItens.length, ok=0, erro=0;
+
+  for(var i=0;i<total;i++){
+    if(!_gerandoImgs) break;
+    var it=_imgItens[i];
+    var k=it.codigo.replace(/[^a-zA-Z0-9]/g,'_');
+    var card   =document.getElementById('ic-'+k);
+    var fotoDiv=document.getElementById('icf-'+k);
+    var statusEl=document.getElementById('ics-'+k);
+
+    /* Destaca o card atual — scroll até ele */
+    if(card){
+      card.className='ic buscando';
+      card.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+    if(statusEl) statusEl.textContent='🔍 buscando...';
+
+    /* Atualiza barra de progresso */
+    document.getElementById('imgs-prog-bar').style.width=Math.round(i/total*100)+'%';
+    document.getElementById('imgs-prog-txt').textContent=
+      '🔍 '+eh(it.nome)+' ('+( i+1)+'/'+total+') · ✅'+ok+' · ❌'+erro;
+
+    try{
+      var url=await buscarImagem(it.nome,it.marca);
+      if(url){
+        /* Salva imediatamente no banco */
+        var rs=await db.from('itens').update({foto_url:url}).eq('codigo',it.codigo);
+        if(rs.error) throw new Error(rs.error.message);
+
+        if(card) card.className='ic ok';
+        if(statusEl) statusEl.textContent='✅ salva';
+        if(fotoDiv){
+          fotoDiv.innerHTML='';
+          var img=document.createElement('img');
+          img.src=url;
+          img.onload=function(){this.classList.add('loaded');};
+          img.onerror=function(){this.classList.add('loaded');this.style.opacity='.3';};
+          fotoDiv.appendChild(img);
+        }
+        ok++;
+      }else{
+        if(card) card.className='ic erro';
+        if(statusEl) statusEl.textContent='❌ não encontrada';
+        erro++;
+      }
+    }catch(e){
+      if(card) card.className='ic erro';
+      if(statusEl) statusEl.textContent='❌ '+e.message;
+      erro++;
+    }
+    await new Promise(function(res){setTimeout(res,1200);});
+  }
+
+  document.getElementById('imgs-prog-bar').style.width='100%';
+  document.getElementById('imgs-prog-txt').textContent=
+    '✅ Concluído — '+ok+' salvas · '+erro+' não encontradas';
+  _gerandoImgs=false;
+  document.getElementById('btn-gerar-imgs').disabled=false;
+  document.getElementById('btn-gerar-imgs').textContent='🔄 Buscar novamente';
+  if(ok>0){ toast('🖼️ '+ok+' imagens salvas!','ok'); carregarTudo(); }
+}
+
+/* mantida por compatibilidade mas não é mais usada */
+async function salvarTodasImagens(){ toast('Imagens já salvas automaticamente!','ok'); }
+</script>
+
+<!-- ══ MODAL GERAR IMAGENS — TELA CHEIA ══ -->
+<div class="bd" id="modal-imgs" style="padding:0;align-items:stretch">
+<div style="width:100%;height:100vh;display:flex;flex-direction:column;background:#111827;overflow:hidden">
+
+  <!-- HEADER -->
+  <div style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;
+    padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;
+    box-shadow:0 2px 12px rgba(0,0,0,.3)">
+    <span style="font-size:1rem;font-weight:800;white-space:nowrap">🖼️ Imagens dos Itens</span>
+    <!-- barra progresso -->
+    <div style="flex:1;background:rgba(255,255,255,.2);border-radius:8px;height:7px;overflow:hidden">
+      <div id="imgs-prog-bar" style="height:100%;width:0%;background:#a5f3fc;
+        border-radius:8px;transition:width .5s ease"></div>
+    </div>
+    <span id="imgs-prog-txt" style="font-size:.78rem;opacity:.8;white-space:nowrap;min-width:140px;text-align:right"></span>
+    <button id="btn-gerar-imgs" onclick="gerarTodasImagens()"
+      style="background:#fff;color:#7c3aed;border:none;border-radius:8px;
+      padding:7px 18px;font-weight:800;cursor:pointer;font-size:.82rem;flex-shrink:0">
+      🚀 Buscar Imagens
+    </button>
+    <button id="btn-salvar-imgs" style="display:none"></button>
+    <button onclick="fecharModalImgs()"
+      style="background:rgba(255,255,255,.15);border:none;color:#fff;
+      border-radius:8px;padding:7px 12px;cursor:pointer;font-size:1rem;flex-shrink:0">✕</button>
+  </div>
+
+  <!-- GRID DE TODOS OS ITENS -->
+  <div id="imgs-grid" style="flex:1;overflow-y:auto;padding:16px;
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+    gap:10px;align-content:start"></div>
+
+  <!-- AVISO SERPER -->
+  <div id="serper-aviso" style="display:none;position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-50%);background:#fff;border-radius:14px;
+    padding:28px 32px;box-shadow:0 8px 40px rgba(0,0,0,.5);text-align:center;
+    max-width:400px;z-index:20">
+    <div style="font-size:2.5rem;margin-bottom:10px">🔑</div>
+    <div style="font-weight:800;font-size:.95rem;margin-bottom:8px">Configure a chave Serper.dev</div>
+    <div style="font-size:.82rem;color:#64748b;line-height:1.7;margin-bottom:14px">
+      1. Acesse <a href="https://serper.dev" target="_blank"
+        style="color:#7c3aed;font-weight:700">serper.dev</a>
+        → conta grátis → copie a API Key<br>
+      2. No <b>estoque.html</b> localize
+        <code style="background:#f1f5f9;padding:2px 5px;border-radius:4px;font-size:.78rem">var SERPER_KEY = ''</code>
+        e cole a chave
+    </div>
+    <button onclick="document.getElementById('serper-aviso').style.display='none'"
+      style="background:#7c3aed;color:#fff;border:none;border-radius:8px;
+      padding:8px 20px;font-weight:700;cursor:pointer;font-size:.84rem">Entendi</button>
+  </div>
+
+</div>
+</div>
+
+<style>
+/* ── CARD DE IMAGEM ── */
+.ic{
+  background:#1f2937;border:2px solid #374151;border-radius:10px;
+  overflow:hidden;display:flex;flex-direction:column;
+  transition:border-color .25s
+}
+.ic.buscando{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.4);transform:scale(1.04);z-index:2;position:relative}
+.ic.ok{border-color:#22c55e}
+.ic.erro{border-color:#374151;opacity:.45}
+
+/* Área da foto */
+.ic-foto{
+  width:100%;aspect-ratio:1/1;background:#111827;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;position:relative;font-size:2rem;color:#374151
+}
+.ic-foto img{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;opacity:0;transition:opacity .4s
+}
+.ic-foto img.loaded{opacity:1}
+/* pulsando enquanto busca */
+.ic.buscando .ic-foto::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 25%,rgba(99,102,241,.25) 50%,transparent 75%);
+  background-size:200% 100%;
+  animation:ic-shimmer 1.2s infinite
+}
+@keyframes ic-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* Info */
+.ic-info{padding:6px 8px}
+.ic-nome{font-size:.67rem;font-weight:700;color:#e2e8f0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
+.ic-cod{font-size:.6rem;color:#6b7280;margin-top:1px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+
+<!-- ══ MODAL GERAR BARCODES — TELA CHEIA ══ -->
+<div class="bd" id="modal-barcodes" style="padding:0;align-items:stretch">
+<div style="width:100%;height:100vh;display:flex;flex-direction:column;background:#0f172a;overflow:hidden">
+
+  <!-- HEADER -->
+  <div style="background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;
+    padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;
+    box-shadow:0 2px 12px rgba(0,0,0,.3)">
+    <span style="font-size:1rem;font-weight:800;white-space:nowrap">📊 Códigos de Barras</span>
+    <div style="flex:1;background:rgba(255,255,255,.2);border-radius:8px;height:7px;overflow:hidden">
+      <div id="bc-prog-bar" style="height:100%;width:0%;background:#a7f3d0;
+        border-radius:8px;transition:width .5s ease"></div>
+    </div>
+    <span id="bc-prog-txt" style="font-size:.78rem;opacity:.8;white-space:nowrap;min-width:180px;text-align:right"></span>
+    <button id="btn-gerar-bc" onclick="gerarTodosBarcodes()"
+      style="background:#fff;color:#0f766e;border:none;border-radius:8px;
+      padding:7px 18px;font-weight:800;cursor:pointer;font-size:.82rem;flex-shrink:0">
+      🚀 Gerar
+    </button>
+    <button id="btn-salvar-bc" onclick="salvarTodosBarcodes()" disabled
+      style="background:#22c55e;color:#fff;border:none;border-radius:8px;
+      padding:7px 18px;font-weight:800;cursor:pointer;font-size:.82rem;
+      flex-shrink:0;opacity:.35">
+      💾 Salvar Todos
+    </button>
+    <button onclick="fecharModalBarcodes()"
+      style="background:rgba(255,255,255,.15);border:none;color:#fff;
+      border-radius:8px;padding:7px 12px;cursor:pointer;font-size:1rem;flex-shrink:0">✕</button>
+  </div>
+
+  <!-- GRID -->
+  <div id="bc-grid" style="flex:1;overflow-y:auto;padding:16px;
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+    gap:10px;align-content:start"></div>
+
+</div>
+</div>
+
+<style>
+/* CARD BARCODE */
+.bc-card{
+  background:#1e293b;border:2px solid #334155;border-radius:10px;
+  padding:12px;display:flex;flex-direction:column;gap:6px;
+  transition:border-color .25s
+}
+.bc-card.buscando{border-color:#0d9488}
+.bc-card.ok{border-color:#22c55e}
+.bc-card.erro{border-color:#334155;opacity:.5}
+.bc-card.buscando .bc-icon::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 25%,rgba(13,148,136,.3) 50%,transparent 75%);
+  background-size:200% 100%;animation:bc-shimmer 1.2s infinite
+}
+@keyframes bc-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.bc-nome{font-size:.72rem;font-weight:700;color:#e2e8f0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bc-cod{font-size:.65rem;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bc-ean{font-size:.8rem;font-weight:800;color:#34d399;
+  font-family:monospace;letter-spacing:1px;margin-top:2px}
+.bc-ean.vazio{color:#475569;font-weight:400;font-size:.72rem}
+.bc-barras{width:100%;height:38px;background:#fff;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  margin-top:2px}
+.bc-barras svg{width:100%;height:100%}
+.bc-icon{position:relative;font-size:1.5rem;text-align:center;
+  color:#334155;padding:6px 0}
+</style>
+
+<script>
+/* ══════════════════════════════════════════
+   BARCODE — busca EAN real via Serper + gera svg
+══════════════════════════════════════════ */
+var _bcItens=[], _bcCodes={}, _gerandoBc=false;
+
+async function abrirModalGerarBarcodes(){
+  document.getElementById('modal-barcodes').classList.add('ab');
+  document.getElementById('bc-prog-bar').style.width='0%';
+  document.getElementById('bc-prog-txt').textContent='Carregando itens...';
+  document.getElementById('btn-salvar-bc').disabled=true;
+  document.getElementById('btn-salvar-bc').style.opacity='.35';
+
+  /* Carrega TODOS os itens sem limite — paginação de 1000 por vez */
+  _bcItens=[]; _bcCodes={};
+  var pagina=0, tamPag=1000;
+  while(true){
+    var r=await db.from('itens')
+      .select('codigo,nome,marca,codigo_barras')
+      .order('nome')
+      .range(pagina*tamPag, (pagina+1)*tamPag-1);
+    if(!r.data||!r.data.length) break;
+    _bcItens=_bcItens.concat(r.data);
+    if(r.data.length<tamPag) break; /* última página */
+    pagina++;
+    document.getElementById('bc-prog-txt').textContent='Carregando... '+_bcItens.length+' itens';
+  }
+
+  /* Separa os que JÁ têm código de barras */
+  _bcItens.forEach(function(it){ if(it.codigo_barras) _bcCodes[it.codigo]=it.codigo_barras; });
+
+  /* Prioriza: mostra primeiro os SEM código de barras */
+  _bcItens.sort(function(a,b){
+    var aTemBc=!!a.codigo_barras, bTemBc=!!b.codigo_barras;
+    if(aTemBc&&!bTemBc) return 1;
+    if(!aTemBc&&bTemBc) return -1;
+    return (a.nome||'').localeCompare(b.nome||'');
+  });
+
+  var comBc=Object.keys(_bcCodes).length;
+  var semBc=_bcItens.length-comBc;
+  var mins=Math.ceil(semBc*2/60);
+  document.getElementById('bc-prog-txt').textContent=
+    _bcItens.length+' itens · '+comBc+' com código · '+semBc+' sem código · ~'+mins+' min';
+
+  var g=document.getElementById('bc-grid');
+  g.innerHTML=_bcItens.map(function(it){
+    var k=it.codigo.replace(/[^a-zA-Z0-9]/g,'_');
+    var ean=_bcCodes[it.codigo]||'';
+    return '<div class="bc-card'+(ean?' ok':'')+'" id="bcc-'+k+'">'+
+      '<div class="bc-nome">'+eh(it.nome)+'</div>'+
+      '<div class="bc-cod">'+eh(it.codigo)+(it.marca?' · '+eh(it.marca):'')+'</div>'+
+      '<div class="bc-ean'+(ean?'':' vazio')+'" id="bcean-'+k+'">'+
+        (ean?ean:'sem código')+'</div>'+
+      '<div class="bc-barras" id="bcbar-'+k+'">'+
+        (ean?gerarBarcodeSVG(ean):'<span style="font-size:1.5rem;color:#334155">📊</span>')+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function fecharModalBarcodes(){
+  if(_gerandoBc&&!confirm('Busca em andamento. Sair mesmo assim?')) return;
+  _gerandoBc=false;
+  document.getElementById('modal-barcodes').classList.remove('ab');
+}
+
+/* ── Busca EAN real via Serper ── */
+async function buscarEAN(nome, codigo, marca){
+  if(!SERPER_KEY) throw new Error('SERPER_KEY não configurada');
+
+  /* Remove sufixos desnecessários do nome: "12X1LT", "KIT", "CAIXA" etc */
+  var nomeSimples = nome
+    .replace(/\s*[-–]\s*[\d]+[xX][\d]+.*$/,'')  /* remove 12X1LT */
+    .replace(/\s*(kit|caixa|cx|un|pc|par|jogo)\b.*/i,'')
+    .replace(/\s+/g,' ').trim();
+
+  /* Usa só marca + nome curto + código do fabricante */
+  var termos = [];
+  if(marca) termos.push(marca);
+  if(codigo && codigo.length < 15) termos.push(codigo);
+  termos.push(nomeSimples.substring(0,40));
+
+  var queryBase = termos.join(' ');
+
+  /* 2 tentativas: com site restrito e sem */
+  var queries = [
+    queryBase+' EAN barcode',
+    queryBase+' código barras site:mercadolivre.com.br OR site:shopee.com.br OR site:amazon.com.br'
+  ];
+
+  for(var qi=0; qi<queries.length; qi++){
+    var r=await fetch('https://google.serper.dev/search',{
+      method:'POST',
+      headers:{'X-API-KEY':SERPER_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({q:queries[qi], gl:'br', hl:'pt', num:5})
+    });
+    if(!r.ok) throw new Error('Serper '+r.status);
+    var d=await r.json();
+
+    var links=(d.organic||[]).map(function(res){return res.link||'';}).filter(Boolean);
+    if(!links.length) continue;
+
+    /* Faz scraping das páginas para extrair EAN do JSON-LD */
+    for(var li=0;li<Math.min(links.length,3);li++){
+      try{
+        var proxy='https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(links[li]);
+        var rp=await fetch(proxy,{signal:AbortSignal.timeout(8000)});
+        if(!rp.ok) continue;
+        var html=await rp.text();
+
+        var patterns=[
+          /"gtin13"\s*:\s*"(\d{13})"/i,
+          /"gtin"\s*:\s*"(\d{8,14})"/i,
+          /"ean"\s*:\s*"(\d{8,14})"/i,
+          /barcode['":\s]+(\d{8,14})/i,
+          /EAN[:\s\-]+(\d{8,14})/i,
+          /"mpn"\s*:\s*"(\d{8,14})"/i,
+        ];
+        for(var pi=0;pi<patterns.length;pi++){
+          var m=html.match(patterns[pi]);
+          if(m&&m[1]){
+            var ean=m[1];
+            if(ean.length===13&&validarEAN13(ean)) return ean;
+            if(ean.length===8&&validarEAN8(ean)) return ean;
+            if(ean.length===12){var e13='0'+ean;if(validarEAN13(e13))return e13;}
+          }
+        }
+        /* EAN brasileiro (789...) */
+        var m2=html.replace(/\s/g,'').match(/\b(789\d{10})\b/);
+        if(m2&&validarEAN13(m2[1])) return m2[1];
+      }catch(e){}
+    }
+  }
+  return null;
+}
+
+/* Validação EAN-13 */
+function validarEAN13(c){
+  if(c.length!==13||!/^\d+$/.test(c)) return false;
+  var soma=0;
+  for(var i=0;i<12;i++) soma+=parseInt(c[i])*(i%2===0?1:3);
+  var dv=(10-(soma%10))%10;
+  return dv===parseInt(c[12]);
+}
+
+/* Validação EAN-8 */
+function validarEAN8(c){
+  if(c.length!==8||!/^\d+$/.test(c)) return false;
+  var soma=0;
+  for(var i=0;i<7;i++) soma+=parseInt(c[i])*(i%2===0?3:1);
+  var dv=(10-(soma%10))%10;
+  return dv===parseInt(c[7]);
+}
+
+/* ── Gera SVG do código de barras (Code128/EAN simplificado) ── */
+function gerarBarcodeSVG(code){
+  /* Representação visual simples com barras proporcionais ao código */
+  var bars=[];
+  var seed=0;
+  for(var i=0;i<code.length;i++) seed+=(code.charCodeAt(i)*(i+1));
+
+  /* Gera padrão de barras baseado no código */
+  var w=180, h=32;
+  var x=4, totalBars=code.length*4+8;
+  var barW=Math.floor((w-8)/totalBars);
+
+  /* Barra inicial */
+  bars.push('<rect x="'+x+'" y="0" width="'+barW+'" height="'+h+'" fill="#000"/>');
+  x+=barW;
+  bars.push('<rect x="'+x+'" y="0" width="'+Math.ceil(barW/2)+'" height="'+h+'" fill="#000"/>');
+  x+=Math.ceil(barW/2)+barW;
+
+  /* Barras do código */
+  for(var i=0;i<code.length;i++){
+    var d=parseInt(code[i])||0;
+    var w1=barW+(d%3===0?1:0);
+    var w2=Math.ceil(barW*(d>5?2:1)/2);
+    bars.push('<rect x="'+x+'" y="0" width="'+w1+'" height="'+h+'" fill="#000"/>');
+    x+=w1+w2;
+    bars.push('<rect x="'+x+'" y="0" width="'+Math.ceil(w1/2)+'" height="'+h+'" fill="#000"/>');
+    x+=Math.ceil(w1/2)+barW;
+  }
+
+  /* Barra final */
+  bars.push('<rect x="'+x+'" y="0" width="'+barW+'" height="'+h+'" fill="#000"/>');
+
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+w+' '+h+'" '+
+    'style="background:#fff;display:block">'+bars.join('')+'</svg>';
+}
+
+async function gerarTodosBarcodes(){
+  if(!SERPER_KEY){
+    toast('Configure SERPER_KEY no código!','er');
+    return;
+  }
+  if(_gerandoBc) return;
+  var semCod=_bcItens.filter(function(it){return !_bcCodes[it.codigo];}).length;
+  if(!confirm('Buscar EAN real para '+semCod+' itens sem código (~'+Math.ceil(semCod*2/60)+' min)?\n('+_bcItens.length+' total, pulando os que já têm código)')) return;
+
+  _gerandoBc=true;
+  document.getElementById('btn-gerar-bc').disabled=true;
+  document.getElementById('btn-gerar-bc').textContent='⏳';
+
+  var total=_bcItens.length, ok=0, erro=0;
+
+  for(var i=0;i<total;i++){
+    if(!_gerandoBc) break;
+    var it=_bcItens[i];
+    /* Pula itens que já têm código de barras */
+    if(_bcCodes[it.codigo]){
+      var k2=it.codigo.replace(/[^a-zA-Z0-9]/g,'_');
+      var card2=document.getElementById('bcc-'+k2);
+      if(card2) card2.className='bc-card ok';
+      ok++; continue;
+    }
+    var k=it.codigo.replace(/[^a-zA-Z0-9]/g,'_');
+    var card=document.getElementById('bcc-'+k);
+    var eanEl=document.getElementById('bcean-'+k);
+    var barEl=document.getElementById('bcbar-'+k);
+
+    /* Buscando */
+    if(card) card.className='bc-card buscando';
+    document.getElementById('bc-prog-bar').style.width=Math.round(i/total*100)+'%';
+    document.getElementById('bc-prog-txt').textContent=
+      (i+1)+'/'+total+' · ✅'+ok+' · ❌'+erro;
+
+    try{
+      var ean=await buscarEAN(it.nome,it.codigo,it.marca);
+      if(ean){
+        _bcCodes[it.codigo]=ean;
+        if(card) card.className='bc-card ok';
+        if(eanEl){ eanEl.className='bc-ean'; eanEl.textContent=ean; }
+        if(barEl) barEl.innerHTML=gerarBarcodeSVG(ean);
+        ok++;
+      } else {
+        if(card) card.className='bc-card erro';
+        if(eanEl){ eanEl.className='bc-ean vazio'; eanEl.textContent='não encontrado'; }
+        erro++;
+      }
+    }catch(e){
+      if(card) card.className='bc-card erro';
+      erro++;
+    }
+
+    /* 2.5s delay entre itens */
+    await new Promise(function(r){setTimeout(r,2500);});
+  }
+
+  document.getElementById('bc-prog-bar').style.width='100%';
+  document.getElementById('bc-prog-txt').textContent=
+    '✅ Concluído · '+ok+' EANs encontrados · '+erro+' não encontrados';
+  _gerandoBc=false;
+  document.getElementById('btn-gerar-bc').disabled=false;
+  document.getElementById('btn-gerar-bc').textContent='🔄 Gerar';
+
+  if(ok>0){
+    document.getElementById('btn-salvar-bc').disabled=false;
+    document.getElementById('btn-salvar-bc').style.opacity='1';
+    toast('📊 '+ok+' códigos encontrados! Clique em Salvar Todos.','ok');
+  } else {
+    toast('Nenhum EAN encontrado.','av');
+  }
+}
+
+async function salvarTodosBarcodes(){
+  var codigos=Object.keys(_bcCodes);
+  if(!codigos.length){toast('Nenhum código para salvar!','er');return;}
+  var btn=document.getElementById('btn-salvar-bc');
+  btn.textContent='⏳ Salvando...'; btn.disabled=true;
+  var salvos=0, erros=0;
+  for(var i=0;i<codigos.length;i++){
+    var ean=_bcCodes[codigos[i]];
+    if(!ean) continue;
+    var r=await db.from('itens').update({codigo_barras:ean}).eq('codigo',codigos[i]);
+    if(r.error) erros++; else salvos++;
+  }
+  btn.textContent='💾 Salvar Todos'; btn.disabled=false;
+  toast('✅ '+salvos+' códigos salvos!','ok');
+  fecharModalBarcodes();
+  carregarTudo();
+}
+</script>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════
+   CONFIG
+══════════════════════════════════════════ */
+var SUPA_URL = 'https://bezfgfoqgmrczehfflfw.supabase.co';
+var SUPA_KEY = 'sb_publishable_Y1XJuBfpheJb7QM6nChNKw_sel05c_p';
+var ADMIN_PASS = 'gu16ma16';
+var USERNAME   = 'Admin';
+
+/* usa window.supabase do SDK — nunca redeclara a variável */
+var db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+/* ══════════════════════════════════════════
+   UTILITÁRIOS
+══════════════════════════════════════════ */
+function brl(n){ return 'R$ ' + Number(n||0).toFixed(2).replace('.',',') }
+function dShort(s){ return s ? new Date(s).toLocaleDateString('pt-BR') : 'N/A' }
+function dHora(s){
+  if(!s) return 'N/A';
+  var d=new Date(s);
+  return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+function eh(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+function eq(s){ return String(s||'').replace(/'/g,"\\'") }
+
+var _tt;
+function toast(msg,tipo){
+  var el=document.getElementById('toast');
+  el.textContent=msg; el.className='vis '+(tipo||'ok');
+  clearTimeout(_tt); _tt=setTimeout(function(){el.className=''},4000);
+}
+
+/* ══════════════════════════════════════════
+   ABAS
+══════════════════════════════════════════ */
+function aba(nome){
+  var ns=['itens','edicao','historico','gestao','margem'];
+  document.querySelectorAll('.aba').forEach(function(b,i){
+    b.classList.toggle('ativa',ns[i]===nome);
+  });
+  ns.forEach(function(n){
+    document.getElementById('p-'+n).classList.toggle('ativo',n===nome);
+  });
+  if(nome==='edicao')   carregarEdicao('');
+  if(nome==='historico') carregarHistorico();
+  if(nome==='gestao')   carregarGestao();
+  if(nome==='margem')   carregarMargem();
+}
+
+function carregarTudo(){
+  var bi=document.getElementById('bi');
+  if(bi) bi.value='';
+  carregarItens('');
+  carregarEdicao('');
+  carregarHistorico();
+}
+
+/* ══════════════════════════════════════════
+   CARREGAR ITENS DETALHADOS
+   (equivale a carregar_itens do Python)
+══════════════════════════════════════════ */
+async function carregarItens(termo){
+  var el=document.getElementById('ti');
+  el.innerHTML='<tr class="vz"><td colspan="14">Carregando...</td></tr>';
+
+  /* tenta view primeiro, fallback na tabela direta */
+  var q=db.from('vw_itens_detalhados').select('*');
+  if(termo){
+    q=q.or('codigo.ilike.%'+termo+'%,nome.ilike.%'+termo+'%,marca.ilike.%'+termo+'%,aplicacao.ilike.%'+termo+'%');
+  }
+  var r=await q.order('codigo');
+
+  /* fallback: se a view falhar usa tabela itens diretamente */
+  if(r.error){
+    var q2=db.from('itens').select('codigo,nome,unidade,qtd_por_caixa,valor_unitario,preco_venda,estoque,estoque_min,estoque_max,marca,aplicacao,data_criacao,categoria_id');
+    if(termo) q2=q2.or('codigo.ilike.%'+termo+'%,nome.ilike.%'+termo+'%,marca.ilike.%'+termo+'%');
+    r=await q2.order('codigo');
+    if(r.error){ el.innerHTML='<tr class="vz"><td colspan="14">❌ '+eh(r.error.message)+'</td></tr>'; return; }
+  }
+
+  var rows=r.data||[];
+  if(!rows.length){ el.innerHTML='<tr class="vz"><td colspan="14">Nenhum item encontrado.</td></tr>'; return; }
+
+  el.innerHTML=rows.map(function(x){
+    var cls=x.estoque<(x.estoque_min||0)?'eb':x.estoque>(x.estoque_max||9999)?'ea':'';
+    var unid=x.unidade==='CX'&&x.qtd_por_caixa?x.unidade+' ('+x.qtd_por_caixa+' un)':(x.unidade||'');
+    var vTotal=(x.valor_total!==undefined)?brl(x.valor_total):brl((x.valor_unitario||0)*(x.estoque||0));
+    /* badge de margem na coluna Preço Venda */
+    var custo=x.valor_unitario||0, pv=x.preco_venda||0;
+    var margem= custo>0 ? ((pv-custo)/custo*100) : (pv===0&&custo===0?null:null);
+    var badgePv='';
+    if(margem===null){badgePv='<br><span class="badge-m sz">sem preço</span>';}
+    else if(margem<0){badgePv='<br><span class="badge-m cr">🔴 prejuízo '+margem.toFixed(0)+'%</span>';}
+    else if(margem<20){badgePv='<br><span class="badge-m at">🟡 '+margem.toFixed(0)+'%</span>';}
+    else if(margem<40){badgePv='<br><span class="badge-m bx">🟠 '+margem.toFixed(0)+'%</span>';}
+    var rowStyle=(margem!==null&&margem<LIMITE_MARGEM&&custo>0)?'background:#fff9f0':'';
+    return '<tr style="'+rowStyle+'">'+
+      '<td>'+eh(x.codigo)+'</td>'+
+      '<td style="text-align:center">'+
+        (x.foto_url
+          ? '<img src="'+x.foto_url+'" style="width:44px;height:36px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer" onclick="window.open(\''+x.foto_url+'\',\'_blank\')" title="Ver foto">'
+          : '<span style="color:#cbd5e1;font-size:1.1rem" title="Sem foto">📦</span>'
+        )+
+      '</td>'+
+      '<td>'+eh(x.nome)+'</td>'+
+      '<td>'+eh(unid)+'</td>'+
+      '<td>'+brl(x.valor_unitario)+'</td>'+
+      '<td class="'+cls+'">'+x.estoque+'</td>'+
+      '<td>'+vTotal+'</td>'+
+      '<td>'+(x.estoque_min||0)+'</td>'+
+      '<td>'+(x.estoque_max||'—')+'</td>'+
+      '<td>'+dShort(x.data_criacao)+'</td>'+
+      '<td>'+eh(x.ultimo_fornecedor||'—')+'</td>'+
+      '<td>'+eh(x.cnpj_fornecedor||'—')+'</td>'+
+      '<td style="white-space:nowrap">'+brl(pv)+badgePv+'</td>'+
+      '<td>'+
+        '<button class="btn ba2 bsm" onclick="abrirForm(\''+eq(x.codigo)+'\')">✏️ Editar</button> '+
+        '<button class="btn br bsm" onclick="excluirItem(\''+eq(x.codigo)+'\')">🗑️</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function pesqItens(){ carregarItens(document.getElementById('bi').value.trim()); }
+
+/* ══════════════════════════════════════════
+   CARREGAR EDIÇÃO RÁPIDA
+   (equivale a carregar_edicao_rapida do Python)
+══════════════════════════════════════════ */
+async function carregarEdicao(termo){
+  var el=document.getElementById('te');
+  el.innerHTML='<tr class="vz"><td colspan="6">Carregando...</td></tr>';
+
+  var q=db.from('itens').select('codigo,nome,marca,aplicacao,estoque,preco_venda,estoque_min,estoque_max');
+  if(termo){
+    q=q.or('codigo.ilike.%'+termo+'%,nome.ilike.%'+termo+'%,marca.ilike.%'+termo+'%,aplicacao.ilike.%'+termo+'%');
+  }
+  var r=await q.order('codigo');
+  if(r.error){ el.innerHTML='<tr class="vz"><td colspan="6">❌ '+eh(r.error.message)+'</td></tr>'; return; }
+
+  var rows=r.data||[];
+  if(!rows.length){ el.innerHTML='<tr class="vz"><td colspan="6">Nenhum item com estoque.</td></tr>'; return; }
+
+  el.innerHTML=rows.map(function(x,i){
+    var bg=i%2===0?'#fff':'#f9f9f9';
+    return '<tr style="background:'+bg+'">'+
+      '<td>'+eh(x.codigo)+'</td>'+
+      '<td>'+eh(x.nome)+'</td>'+
+      '<td ondblclick="editCel(this,\''+eq(x.codigo)+'\',\'marca\')">'+eh(x.marca||'N/A')+'</td>'+
+      '<td ondblclick="abrirAplicacao(\''+eq(x.codigo)+'\')" style="cursor:pointer">'+eh(x.aplicacao||'N/A')+'</td>'+
+      '<td ondblclick="editCel(this,\''+eq(x.codigo)+'\',\'estoque\')">'+x.estoque+'</td>'+
+      '<td ondblclick="editCel(this,\''+eq(x.codigo)+'\',\'preco_venda\')">'+brl(x.preco_venda)+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function pesqEdicao(){ carregarEdicao(document.getElementById('be').value.trim()); }
+
+/* ══════════════════════════════════════════
+   EDIÇÃO INLINE (iniciar_edicao + salvar_edicao + atualizar_linha)
+══════════════════════════════════════════ */
+function editCel(td, codigo, campo){
+  var isNum = campo==='estoque'||campo==='preco_venda';
+  var orig  = td.innerHTML;
+  var val   = td.textContent.trim().replace('R$ ','').replace(',','.');
+  if(val==='N/A') val='';
+
+  var inp=document.createElement('input');
+  inp.className='inp-cel';
+  inp.type=isNum?'number':'text';
+  inp.value=val;
+  if(campo==='preco_venda') inp.step='0.01';
+
+  td.innerHTML=''; td.appendChild(inp); inp.focus(); inp.select();
+  var feito=false;
+
+  async function salvar(){
+    if(feito) return; feito=true;
+    var novo=inp.value.trim();
+    try{
+      if(campo==='estoque')     novo=parseInt(novo)||0;
+      else if(campo==='preco_venda') novo=parseFloat(novo)||0;
+      else{ if(!novo||novo.toLowerCase()==='n/a') novo=null; }
+
+      var obj={}; obj[campo]=novo;
+      var res=await db.from('itens').update(obj).eq('codigo',codigo);
+      if(res.error) throw new Error(res.error.message);
+
+      td.innerHTML=campo==='preco_venda'?brl(novo):eh(novo==null?'N/A':String(novo));
+      toast('Salvo!','ok');
+    }catch(e){
+      toast('Erro: '+e.message,'er');
+      td.innerHTML=orig;
+    }
+  }
+
+  inp.addEventListener('blur',salvar);
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter') inp.blur();
+    if(e.key==='Escape'){ feito=true; td.innerHTML=orig; }
+  });
+}
+
+/* ══════════════════════════════════════════
+   CARREGAR HISTÓRICO NF-e
+   (equivale a carregar_historicos do Python)
+══════════════════════════════════════════ */
+async function carregarHistorico(){
+  var el=document.getElementById('th');
+  el.innerHTML='<tr class="vz"><td colspan="7">Carregando...</td></tr>';
+
+  /* busca todas as NF-e */
+  var rNf=await db.from('notas_fiscais').select('*').order('data_importacao',{ascending:false});
+  if(rNf.error){ el.innerHTML='<tr class="vz"><td colspan="7">❌ '+eh(rNf.error.message)+'</td></tr>'; return; }
+  var nfs=rNf.data||[];
+  if(!nfs.length){ el.innerHTML='<tr class="vz"><td colspan="7">Nenhuma NF-e importada.</td></tr>'; return; }
+
+  var chaves=nfs.map(function(n){ return n.chave_nfe; });
+
+  /* conta movimentações por chave */
+  var rMov=await db.from('movimentacoes').select('chave_nfe').in('chave_nfe',chaves);
+  var cnt={};
+  (rMov.data||[]).forEach(function(m){ cnt[m.chave_nfe]=(cnt[m.chave_nfe]||0)+1; });
+
+  /* valor total por chave */
+  var rHc=await db.from('historico_compras').select('chave_nfe,valor_total').in('chave_nfe',chaves);
+  var vt={};
+  (rHc.data||[]).forEach(function(h){ vt[h.chave_nfe]=h.valor_total; });
+
+  el.innerHTML=nfs.map(function(n){
+    var empresa=n.nome_emitente ? eh(n.nome_emitente)+' ('+eh(n.cnpj_emitente||'')+')' : 'N/A';
+    var chaveExib=n.chave_nfe ? n.chave_nfe.substring(0,24)+'…' : 'N/A';
+    var sefazUrlH=n.chave_nfe?'https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=completa&tipoConteudo=XbSeqxE8pl8=&nfe='+n.chave_nfe:'';
+    return '<tr>'+
+      '<td title="'+eh(n.chave_nfe)+'" style="font-size:.82rem">'+
+        '<span style="font-family:monospace">'+chaveExib+'</span>'+
+        (n.chave_nfe?
+          '<div style="display:flex;gap:4px;margin-top:4px">'+
+            '<button data-chave="'+eh(n.chave_nfe)+'" onclick="copiarChaveNF(this.dataset.chave)" title="Copiar chave completa" '+
+              'style="border:none;background:#0f766e;color:#fff;border-radius:4px;padding:2px 8px;font-size:.72rem;cursor:pointer">'+
+              '📋 Copiar</button>'+
+            (sefazUrlH?'<a href="'+sefazUrlH+'" target="_blank" '+
+              'style="border:none;background:#1d4ed8;color:#fff;border-radius:4px;padding:2px 8px;font-size:.72rem;cursor:pointer;text-decoration:none">'+
+              '🔍 SEFAZ</a>':'')+'</div>'
+        :'')+
+      '</td>'+
+      '<td>'+eh(n.arquivo||'N/A')+'</td>'+
+      '<td>'+dHora(n.data_importacao)+'</td>'+
+      '<td>'+(cnt[n.chave_nfe]||0)+'</td>'+
+      '<td>'+empresa+'</td>'+
+      '<td>'+brl(vt[n.chave_nfe]||0)+'</td>'+
+      '<td><button class="btn br bsm" onclick="pedirSenha(\''+eq(n.chave_nfe)+'\')">↩️ Desfazer</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+/* ══════════════════════════════════════════
+   DESFAZER IMPORTAÇÃO
+   (equivale EXATAMENTE a desfazer_importacao do Python)
+   — subtrai estoque de cada item da NF
+   — itens que ficam com estoque 0 somem da lista (WHERE estoque != 0)
+══════════════════════════════════════════ */
+var _chave=null;
+
+function pedirSenha(chave){
+  _chave=chave;
+  document.getElementById('inp-senha').value='';
+  document.getElementById('msg-erro-senha').style.display='none';
+  document.getElementById('ms').classList.add('ab');
+  setTimeout(function(){ document.getElementById('inp-senha').focus(); },80);
+}
+function fecharSenha(){
+  document.getElementById('ms').classList.remove('ab');
+  /* NÃO zera _chave aqui — zera só depois de usar */
+}
+
+async function confirmarDesfazer(){
+  if(document.getElementById('inp-senha').value !== ADMIN_PASS){
+    document.getElementById('msg-erro-senha').style.display='block';
+    return;
+  }
+
+  /* Fecha o modal MAS guarda a chave em variável local antes */
+  var chave=_chave;
+  fecharSenha();
+  _chave=null;
+
+  if(!chave){ toast('Erro interno: chave não encontrada.','er'); return; }
+
+  toast('⏳ Revertendo...','av');
+
+  try{
+    /* PASSO 1 — busca todas as movimentações desta NF-e */
+    var rMov=await db
+      .from('movimentacoes')
+      .select('item_codigo,quantidade,tipo')
+      .eq('chave_nfe',chave);
+
+    if(rMov.error) throw new Error(rMov.error.message);
+    var movs=rMov.data||[];
+
+    if(!movs.length){
+      toast('Nenhuma movimentação encontrada para esta NF-e.','av');
+      return;
+    }
+
+    /* PASSO 2 — para cada item: estoque = estoque - quantidade (mín 0)
+       Igual ao Python:
+         UPDATE itens SET estoque = estoque - ? WHERE codigo = ?
+         se estoque < 0: UPDATE itens SET estoque = 0 WHERE codigo = ?   */
+    for(var i=0;i<movs.length;i++){
+      var m=movs[i];
+      if(m.tipo!=='CRIACAO' && m.tipo!=='ATUALIZACAO') continue;
+
+      /* busca estoque atual */
+      var ri=await db.from('itens').select('estoque').eq('codigo',m.item_codigo).maybeSingle();
+      if(ri.error||!ri.data) continue;
+
+      var novoEst=Math.max(0, ri.data.estoque - Number(m.quantidade));
+      var upd=await db.from('itens').update({estoque:novoEst}).eq('codigo',m.item_codigo);
+      if(upd.error) throw new Error('Atualizar '+m.item_codigo+': '+upd.error.message);
+    }
+
+    /* PASSO 3 — zera valor_total no histórico (como no Python) */
+    await db.from('historico_compras').update({valor_total:0}).eq('chave_nfe',chave);
+
+    /* PASSO 4 — deleta movimentações (antes da NF por FK) */
+    var dMov=await db.from('movimentacoes').delete().eq('chave_nfe',chave);
+    if(dMov.error) throw new Error(dMov.error.message);
+
+    /* PASSO 5 — deleta a nota fiscal */
+    var dNf=await db.from('notas_fiscais').delete().eq('chave_nfe',chave);
+    if(dNf.error) throw new Error(dNf.error.message);
+
+    toast('✅ Importação revertida! '+movs.length+' item(ns) ajustado(s).','ok');
+    carregarTudo();
+
+  }catch(e){
+    toast('❌ Falha: '+e.message,'er');
+    console.error('[desfazer]',e);
+  }
+}
+
+/* ══════════════════════════════════════════
+   IMPORTAR NF-e
+   (equivale a importar_nfe do Python)
+══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   IMPORTAR NF-e  —  FLUXO:
+   1. lerArquivo  → habilita "Visualizar"
+   2. previewNfe  → parse XML, monta tabela editável (UN/CX)
+   3. confirmarImportacao → grava no banco
+══════════════════════════════════════════ */
+var _nfeBuf=null, _nfeNome=null, _nfeHash=null;
+var _nfeParsed=null;   /* dados parseados: { chaveNfe, nomeEm, cnpjEm, itens:[] } */
+
+function abrirNfe(){
+  _nfeBuf=null; _nfeNome=null; _nfeHash=null; _nfeParsed=null;
+  document.getElementById('narq').textContent='Nenhum arquivo selecionado';
+  document.getElementById('finp').value='';
+  var r=document.getElementById('nfe-res');
+  r.textContent=''; r.style.display='none';
+  document.getElementById('btn-imp').disabled=true;
+  document.getElementById('mn').classList.add('ab');
+}
+function fecharNfe(){ document.getElementById('mn').classList.remove('ab'); }
+function fecharPreview(){ document.getElementById('mprev').classList.remove('ab'); }
+
+/* drag & drop */
+var _drop=document.getElementById('area-drop');
+_drop.addEventListener('dragover',function(e){ e.preventDefault(); _drop.classList.add('drag'); });
+_drop.addEventListener('dragleave',function(){ _drop.classList.remove('drag'); });
+_drop.addEventListener('drop',function(e){
+  e.preventDefault(); _drop.classList.remove('drag');
+  var f=e.dataTransfer.files[0]; if(f) lerArquivo(f);
+});
+
+function selecionarArq(ev){ var f=ev.target.files[0]; if(f) lerArquivo(f); }
+
+function lerArquivo(file){
+  _nfeNome=file.name;
+  document.getElementById('narq').textContent='📄 '+file.name;
+  var res=document.getElementById('nfe-res');
+  res.style.display='none';
+  var rd=new FileReader();
+  rd.onload=function(e){
+    _nfeBuf=e.target.result;
+    document.getElementById('btn-imp').disabled=false;
+  };
+  rd.readAsText(file,'UTF-8');
+}
+
+function msgNfe(txt,tipo){
+  var el=document.getElementById('nfe-res');
+  el.textContent=txt; el.className=tipo; el.style.display='block';
+}
+
+async function sha256(str){
+  var buf=new TextEncoder().encode(str);
+  var h=await crypto.subtle.digest('SHA-256',buf);
+  return Array.from(new Uint8Array(h)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+}
+
+/* ── PASSO 1: parse do XML e exibe preview fullscreen ── */
+async function previewNfe(){
+  if(!_nfeBuf){ toast('Nenhum arquivo carregado.','er'); return; }
+  document.getElementById('btn-imp').disabled=true;
+  msgNfe('⏳ Lendo arquivo...','ok');
+
+  try{
+    _nfeHash=await sha256(_nfeBuf);
+
+    var dup=await db.from('notas_fiscais').select('chave_nfe').eq('hash_arquivo',_nfeHash).maybeSingle();
+    if(dup.error) throw new Error(dup.error.message);
+    if(dup.data){
+      msgNfe('❌ Esta NF-e já foi importada anteriormente!','er');
+      document.getElementById('btn-imp').disabled=false;
+      return;
+    }
+
+    var xml=new DOMParser().parseFromString(_nfeBuf,'text/xml');
+    var ns='http://www.portalfiscal.inf.br/nfe';
+    function xg(el,tag){ var n=el.getElementsByTagNameNS(ns,tag)[0]; return n?n.textContent:''; }
+
+    var emit=xml.getElementsByTagNameNS(ns,'emit')[0];
+    if(!emit) throw new Error('Tag <emit> não encontrada.');
+    var infNFe=xml.getElementsByTagNameNS(ns,'infNFe')[0];
+    if(!infNFe) throw new Error('Tag <infNFe> não encontrada.');
+
+    var chaveNfe=infNFe.getAttribute('Id').replace(/^NFe/,'');
+    var nomeEm=xg(emit,'xNome');
+    var cnpjEm=xg(emit,'CNPJ');
+
+    var dets=xml.getElementsByTagNameNS(ns,'det');
+    if(!dets.length) throw new Error('Nenhum item encontrado no XML.');
+
+    var itens=[];
+    for(var i=0;i<dets.length;i++){
+      var prod=dets[i].getElementsByTagNameNS(ns,'prod')[0];
+      if(!prod) continue;
+      var cod   = xg(prod,'cProd');
+      var nome  = xg(prod,'xProd');
+      var unidNf= xg(prod,'uCom');
+      var qtdNf = parseFloat(xg(prod,'qCom'))||0;
+      var vUnit = parseFloat(xg(prod,'vUnCom'))||0;
+
+      var ex=await db.from('itens').select('codigo,estoque,preco_venda,marca,aplicacao').eq('codigo',cod).maybeSingle();
+      var situacao=(!ex.data)?'NOVO':'ATUALIZAR';
+
+      itens.push({
+        cod:cod, nome:nome, unidNf:unidNf, qtdNf:qtdNf, vUnit:vUnit,
+        tipo:'UN', qtdCx:1,
+        precovenda: ex.data ? (ex.data.preco_venda||0) : 0,
+        marca:      ex.data ? (ex.data.marca||'')       : '',
+        aplicacao:  ex.data ? (ex.data.aplicacao||'')   : '',
+        categoria_id: ex.data ? (ex.data.categoria_id||null) : null,
+        situacao:situacao,
+        estoqueAtual: ex.data ? ex.data.estoque : 0
+      });
+    }
+
+    _nfeParsed={ chaveNfe:chaveNfe, nomeEm:nomeEm, cnpjEm:cnpjEm, itens:itens };
+
+    /* cabeçalho */
+    document.getElementById('prev-cabecalho').innerHTML=
+      '<div><b>Emitente:</b> '+eh(nomeEm)+'</div>'+
+      '<div><b>CNPJ:</b> '+eh(cnpjEm)+'</div>'+
+      '<div><b>Chave:</b> <span style="font-size:.75rem;font-family:monospace">'+eh(chaveNfe.substring(0,22))+'…</span></div>'+
+      '<div><b>Arquivo:</b> '+eh(_nfeNome)+'</div>'+
+      '<div><b>Itens:</b> '+itens.length+'</div>';
+
+    document.getElementById('prev-info-topo').textContent=nomeEm+' | '+itens.length+' itens';
+
+    renderPreview();
+
+    fecharNfe();
+    var tela=document.getElementById('tela-prev');
+    tela.style.display='flex';
+
+  }catch(e){
+    msgNfe('❌ '+e.message,'er');
+    document.getElementById('btn-imp').disabled=false;
+    console.error('[previewNfe]',e);
+  }
+}
+
+function fecharPreview(){
+  document.getElementById('tela-prev').style.display='none';
+  document.getElementById('btn-imp').disabled=false;
+  /* reabre modal de upload */
+  document.getElementById('mn').classList.add('ab');
+}
+
+/* ── Renderiza tabela completa ── */
+function renderPreview(){
+  var itens=_nfeParsed.itens;
+  var totalNf=0;
+  var edt='background:#fffde7;cursor:pointer'; /* estilo célula editável */
+
+  var html=itens.map(function(it,i){
+    var qtdCx=Math.max(1,parseInt(it.qtdCx)||1);
+    var estoqueAdd, vUnitFinal;
+    if(it.tipo==='CX'){
+      estoqueAdd=Math.round(it.qtdNf*qtdCx);
+      vUnitFinal=(it.qtdNf*it.vUnit)/estoqueAdd;
+    }else{
+      estoqueAdd=Math.round(it.qtdNf);
+      vUnitFinal=it.vUnit;
+    }
+    totalNf+=it.qtdNf*it.vUnit;
+
+    var corSit=it.situacao==='NOVO'
+      ?'background:#d4edda;color:#155724'
+      :'background:#fff3cd;color:#856404';
+
+    var inputCx=it.tipo==='CX'
+      ?'<input type="number" min="1" value="'+qtdCx+'" '+
+        'style="width:55px;padding:2px 4px;border:1px solid var(--azul2);border-radius:4px;font-size:.8rem;background:#fffde7" '+
+        'onchange="setCx('+i+',this.value)" onclick="event.stopPropagation()">'
+      :'<span style="color:#ccc">—</span>';
+
+    return '<tr style="border-bottom:1px solid #eee" id="pr'+i+'">'+
+      /* # */
+      '<td style="padding:6px 8px;color:#aaa;font-size:.75rem;text-align:center">'+(i+1)+'</td>'+
+      /* Código */
+      '<td style="padding:6px 8px;font-family:monospace;font-size:.8rem">'+eh(it.cod)+'</td>'+
+      /* Nome — editável */
+      '<td style="padding:6px 8px;'+edt+'" title="Clique para editar" ondblclick="editPrev('+i+',\'nome\',this)">'+eh(it.nome)+'</td>'+
+      /* Unid NF */
+      '<td style="padding:6px 8px;text-align:center;color:#888">'+eh(it.unidNf)+'</td>'+
+      /* Qtd NF */
+      '<td style="padding:6px 8px;text-align:center">'+it.qtdNf+'</td>'+
+      /* Tipo UN/CX */
+      '<td style="padding:6px 8px;text-align:center;background:#eef2ff">'+
+        '<div style="display:flex;gap:3px;justify-content:center">'+
+          '<button onclick="setTipo('+i+',\'UN\')" style="padding:2px 8px;border:none;border-radius:4px;cursor:pointer;font-size:.78rem;font-weight:700;'+
+            (it.tipo==='UN'?'background:var(--azul2);color:#fff':'background:#e9ecef;color:#555')+'">UN</button>'+
+          '<button onclick="setTipo('+i+',\'CX\')" style="padding:2px 8px;border:none;border-radius:4px;cursor:pointer;font-size:.78rem;font-weight:700;'+
+            (it.tipo==='CX'?'background:var(--amarelo);color:#222':'background:#e9ecef;color:#555')+'">CX</button>'+
+        '</div>'+
+      '</td>'+
+      /* Qtd/Cx */
+      '<td style="padding:6px 8px;text-align:center;background:#eef2ff">'+inputCx+'</td>'+
+      /* Estoque+ */
+      '<td style="padding:6px 8px;text-align:center;font-weight:700">'+estoqueAdd+'</td>'+
+      /* Vlr Unit NF */
+      '<td style="padding:6px 8px;text-align:right">'+brl(it.vUnit)+'</td>'+
+      /* Vlr Unit Final */
+      '<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--azul);background:#eef2ff">'+brl(vUnitFinal)+'</td>'+
+      /* Preço Venda — editável */
+      '<td style="padding:6px 8px;text-align:right;'+edt+'" title="Clique para editar" ondblclick="editPrev('+i+',\'precovenda\',this)">'+brl(it.precovenda)+'</td>'+
+      /* Marca — editável */
+      '<td style="padding:6px 8px;'+edt+'" title="Clique para editar" ondblclick="editPrev('+i+',\'marca\',this)">'+eh(it.marca||'—')+'</td>'+
+      /* Aplicação — abre modal + botão IA */
+      '<td style="padding:4px 8px;max-width:220px" id="td-apl-'+i+'">'+
+        '<div style="display:flex;align-items:center;gap:4px">'+
+          '<span style="'+edt+';flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 4px;border-radius:3px;font-size:.8rem;min-width:0" '+
+            'title="Duplo clique para editar" ondblclick="abrirAplPreview('+i+')">'+
+            eh(it.aplicacao||'—')+
+          '</span>'+
+          '<button onclick="sugerirAplicacaoIAPreview('+i+')" id="btn-ia-'+i+'" '+
+            'title="Sugerir aplicação com IA" '+
+            'style="flex-shrink:0;border:none;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:.72rem;font-weight:700;'+
+            'background:linear-gradient(135deg,#6e40c9,#5271ff);color:#fff;white-space:nowrap">'+
+            '🤖'+
+          '</button>'+
+        '</div>'+
+      '</td>'+
+      /* Categoria */
+      '<td style="padding:6px 8px;background:#fffde7;min-width:160px">'+
+        '<select onchange="_nfeParsed.itens['+i+'].categoria_id=this.value||null" '+
+          'style="width:100%;padding:3px 5px;border:1px solid var(--azul2);border-radius:4px;font-size:.8rem;background:#fffde7">'+
+          buildCatOptions(it.categoria_id)+
+        '</select>'+
+      '</td>'+
+      /* Situação */
+      '<td style="padding:6px 8px;text-align:center"><span style="padding:2px 8px;border-radius:12px;font-size:.76rem;font-weight:700;'+corSit+'">'+it.situacao+'</span></td>'+
+    '</tr>';
+  }).join('');
+
+  document.getElementById('prev-corpo').innerHTML=html;
+  document.getElementById('prev-total').textContent=brl(totalNf);
+}
+
+/* ── Edição inline nas células do preview ── */
+function editPrev(i, campo, td){
+  var it=_nfeParsed.itens[i];
+  var valAtual=campo==='precovenda'
+    ? Number(it[campo]).toFixed(2)
+    : String(it[campo]||'');
+  var orig=td.innerHTML;
+
+  var inp=document.createElement('input');
+  inp.type=campo==='precovenda'?'number':'text';
+  inp.value=valAtual;
+  inp.step=campo==='precovenda'?'0.01':'';
+  inp.style.cssText='width:100%;padding:3px 6px;border:2px solid var(--azul2);'+
+    'border-radius:4px;font-size:.83rem;outline:none;background:#fff';
+  td.innerHTML=''; td.appendChild(inp); inp.focus(); inp.select();
+
+  var feito=false;
+  function salvar(){
+    if(feito) return; feito=true;
+    var v=inp.value.trim();
+    if(campo==='precovenda') v=parseFloat(v)||0;
+    _nfeParsed.itens[i][campo]=v;
+    renderPreview(); /* re-renderiza a linha */
+  }
+  inp.addEventListener('blur',salvar);
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter') inp.blur();
+    if(e.key==='Escape'){ feito=true; td.innerHTML=orig; }
+  });
+}
+
+/* ── Aplicação no preview: abre o mesmo modal mas com contexto "preview" ── */
+var _aplPrevIdx=null;
+
+function abrirAplPreview(i){
+  console.log('[abrirAplPreview] i=', i, '_nfeParsed=', !!_nfeParsed);
+  _aplPrevIdx=i;
+  var it=_nfeParsed.itens[i];
+
+  _apl.marcasSel=[]; _apl.modelos={}; _apl.marcaAtiva=null; _apl.codigo=null;
+
+  var apl=it.aplicacao||'';
+  console.log('[abrirAplPreview] aplicacao atual=', apl);
+
+  if(apl && apl!=='—'){
+    apl.split('|').forEach(function(parte){
+      var idx=parte.indexOf(':');
+      if(idx<0) return;
+      var marca=parte.substring(0,idx).trim();
+      var carros=parte.substring(idx+1).split(';').map(function(c){ return c.trim(); }).filter(Boolean);
+      if(marca){
+        if(_apl.marcasSel.indexOf(marca)<0) _apl.marcasSel.push(marca);
+        _apl.modelos[marca]=carros;
+      }
+    });
+    if(_apl.marcasSel.length) _apl.marcaAtiva=_apl.marcasSel[0];
+  }
+
+  document.getElementById('nova-marca').value='';
+  document.getElementById('inp-aplicacao').value='';
+  renderChipsMarcas();
+  renderSecaoModelos();
+  atualizarPreviewApl();
+  console.log('[abrirAplPreview] abrindo modal #mma z-index=3000');
+  document.getElementById('mma').classList.add('ab');
+}
+
+function setTipo(i,tipo){
+  _nfeParsed.itens[i].tipo=tipo;
+  if(tipo==='UN') _nfeParsed.itens[i].qtdCx=1;
+  renderPreview();
+}
+function setCx(i,val){
+  _nfeParsed.itens[i].qtdCx=Math.max(1,parseInt(val)||1);
+  renderPreview();
+}
+
+/* ── PASSO 2: grava no banco ── */
+async function confirmarImportacao(){
+  if(!_nfeParsed){ toast('Nenhum preview carregado.','er'); return; }
+  document.getElementById('btn-confirmar').disabled=true;
+
+  var itens    = _nfeParsed.itens;
+  var chaveNfe = _nfeParsed.chaveNfe;
+  var nomeEm   = _nfeParsed.nomeEm;
+  var cnpjEm   = _nfeParsed.cnpjEm;
+
+  /* ── Validação markup mínimo 40% sobre custo ──
+     Usa o mesmo vUnitFinal que vai para o banco:
+     CX → vUnit / qtdCx   |   UN → vUnit                ── */
+  var _erros=[];
+  itens.forEach(function(it){
+    var qtdCx  = Math.max(1, parseInt(it.qtdCx)||1);
+    var custo  = it.tipo==='CX' ? (it.vUnit||0)/qtdCx : (it.vUnit||0);
+    var pv     = it.precovenda||0;
+    if(custo<=0||pv<=0) return;
+    var m=(pv-custo)/custo*100;
+    if(m<LIMITE_MARGEM){
+      var pvMin=(custo*(1+LIMITE_MARGEM/100)).toFixed(2).replace('.',',');
+      _erros.push('• '+it.nome+' — markup '+m.toFixed(1)+'% (mín R$ '+pvMin+')');
+    }
+  });
+  if(_erros.length){
+    document.getElementById('btn-confirmar').disabled=false;
+    alert('❌ Itens com markup abaixo de '+LIMITE_MARGEM+'%:\n\n'+_erros.join('\n')+'\n\nCorrija o Preço de Venda na coluna amarela antes de importar.');
+    return;
+  }
+
+  _executarConfirmarImportacao(itens,chaveNfe,nomeEm,cnpjEm);
+}
+
+async function _executarConfirmarImportacao(itens,chaveNfe,nomeEm,cnpjEm){
+  try{
+    var totalCompra=0, totalItens=0, novosItens=0;
+    var movsBatch=[];
+    for(var i=0;i<itens.length;i++){
+      var it=itens[i];
+      var qtdCx     = Math.max(1,parseInt(it.qtdCx)||1);
+      var estoqueAdd, vUnitFinal;
+
+      if(it.tipo==='CX'){
+        estoqueAdd = Math.round(it.qtdNf * qtdCx);
+        vUnitFinal = (it.qtdNf * it.vUnit) / estoqueAdd;
+      }else{
+        estoqueAdd = Math.round(it.qtdNf);
+        vUnitFinal = it.vUnit;
+      }
+      totalCompra += it.qtdNf * it.vUnit;
+
+      var unidSalvar = it.tipo;
+      var qtdCxSalvar= it.tipo==='CX' ? qtdCx : 1;
+      var tipoMov;
+
+      if(it.situacao==='NOVO'){
+        var ins=await db.from('itens').insert({
+          codigo:it.cod, nome:it.nome, unidade:unidSalvar, qtd_por_caixa:qtdCxSalvar,
+          estoque:estoqueAdd, estoque_inicial:estoqueAdd,
+          valor_unitario:vUnitFinal, preco_venda:it.precovenda||0,
+          marca:it.marca||null, aplicacao:it.aplicacao||null,
+          categoria_id:it.categoria_id?parseInt(it.categoria_id):null
+        });
+        if(ins.error) throw new Error('Criar '+it.cod+': '+ins.error.message);
+        tipoMov='CRIACAO'; novosItens++;
+      }else{
+        var novoEst=it.estoqueAtual+estoqueAdd;
+        var campos={
+          estoque:novoEst, valor_unitario:vUnitFinal,
+          unidade:unidSalvar, qtd_por_caixa:qtdCxSalvar,
+          preco_venda:it.precovenda||0
+        };
+        if(it.marca)    campos.marca=it.marca;
+        if(it.aplicacao) campos.aplicacao=it.aplicacao;
+        if(it.categoria_id) campos.categoria_id=parseInt(it.categoria_id);
+        var upd=await db.from('itens').update(campos).eq('codigo',it.cod);
+        if(upd.error) throw new Error('Atualizar '+it.cod+': '+upd.error.message);
+
+        var rl=await db.from('itens').select('estoque_min,estoque_max').eq('codigo',it.cod).single();
+        if(rl.data){
+          if(novoEst<rl.data.estoque_min) toast('⚠️ Estoque BAIXO: '+it.cod,'av');
+          if(novoEst>rl.data.estoque_max) toast('⚠️ Estoque ALTO: '+it.cod,'av');
+        }
+        tipoMov='ATUALIZACAO';
+      }
+
+      movsBatch.push({
+        item_codigo:it.cod, tipo:tipoMov, quantidade:estoqueAdd,
+        data:new Date().toISOString(), responsavel:USERNAME, chave_nfe:chaveNfe
+      });
+      totalItens++;
+    }
+
+    var iNf=await db.from('notas_fiscais').insert({
+      chave_nfe:chaveNfe, arquivo:_nfeNome,
+      data_importacao:new Date().toISOString(),
+      hash_arquivo:_nfeHash, nome_emitente:nomeEm, cnpj_emitente:cnpjEm
+    });
+    if(iNf.error) throw new Error('notas_fiscais: '+iNf.error.message);
+
+    var iHc=await db.from('historico_compras').insert({
+      data:new Date().toISOString(), valor_total:totalCompra, chave_nfe:chaveNfe
+    });
+    if(iHc.error) throw new Error('HistoricoCompras: '+iHc.error.message);
+
+    var iMov=await db.from('movimentacoes').insert(movsBatch);
+    if(iMov.error) throw new Error('Movimentações: '+iMov.error.message);
+
+    fecharPreview();
+    toast('✅ NF-e importada! Empresa: '+nomeEm+' | Itens: '+totalItens+' | Novos: '+novosItens+' | Total: '+brl(totalCompra),'ok');
+    alert('NF-e '+chaveNfe+' importada com sucesso!\n\nEmpresa: '+nomeEm+'\nCNPJ: '+cnpjEm+'\nItens processados: '+totalItens+'\nNovos itens: '+novosItens+'\nValor total: '+brl(totalCompra));
+    carregarTudo();
+
+  }catch(e){
+    toast('❌ Falha: '+e.message,'er');
+    console.error('[_executarConfirmarImportacao]',e);
+    document.getElementById('btn-confirmar').disabled=false;
+  }
+}
+
+/* ══════════════════════════════════════════
+   FORMULÁRIO NOVO / EDITAR ITEM
+   (show_form + hide_form + salvar_novo_item + atualizar_item)
+══════════════════════════════════════════ */
+var _formAberto=false;
+
+async function abrirForm(codigo){
+  if(_formAberto) return;
+  _formAberto=true;
+
+  /* limpa todos os campos */
+  ['fc','fn','fe','fv','fpv','fmarca','fmin','fmax'].forEach(function(id){
+    document.getElementById(id).value='';
+  });
+  document.getElementById('fqc').value='1';
+  document.getElementById('fu').value='UN';
+  document.getElementById('fapl').value='';
+  document.getElementById('fcat').value='';
+  document.getElementById('sug').style.display='none';
+  /* reset visual campo código */
+  var fcEl=document.getElementById('fc');
+  fcEl.style.background=''; fcEl.style.borderColor='';
+  mudaUnidade();
+
+  if(codigo){
+    document.getElementById('mf-titulo').textContent='✏️ Editar Item';
+    document.getElementById('fc').readOnly=false;
+    document.getElementById('fmodo').value='editar';
+    document.getElementById('forig').value=codigo;
+
+    var r=await db.from('itens').select('*').eq('codigo',codigo).single();
+    if(r.error||!r.data){ toast('Erro ao carregar item.','er'); _formAberto=false; return; }
+    var d=r.data;
+    document.getElementById('fc').value    = d.codigo;
+    document.getElementById('fn').value    = d.nome;
+    document.getElementById('fu').value    = d.unidade||'UN';
+    document.getElementById('fqc').value   = d.qtd_por_caixa||1;
+    document.getElementById('fe').value    = d.estoque;
+    document.getElementById('fv').value    = Number(d.valor_unitario).toFixed(2);
+    document.getElementById('fpv').value   = Number(d.preco_venda||0).toFixed(2);
+    setTimeout(atualizarBadgeFpv,50);
+    document.getElementById('fmarca').value= d.marca||'';
+    document.getElementById('fapl').value  = d.aplicacao||'';
+    document.getElementById('fcat').value  = d.categoria_id||'';
+    document.getElementById('fmin').value  = d.estoque_min;
+    document.getElementById('fmax').value  = d.estoque_max;
+    mudaUnidade();
+  }else{
+    document.getElementById('mf-titulo').textContent='➕ Novo Item';
+    document.getElementById('fc').readOnly=false;
+    document.getElementById('fmodo').value='novo';
+    document.getElementById('forig').value='';
+    document.getElementById('fe').value   ='0';
+    document.getElementById('fv').value   ='0.00';
+    document.getElementById('fpv').value  ='0.00';
+    document.getElementById('fmin').value ='0';
+    document.getElementById('fmax').value ='1000';
+
+    var r2=await db.from('itens').select('codigo').ilike('codigo','AL-%').order('codigo',{ascending:false}).limit(1);
+    var prox=0;
+    if(r2.data&&r2.data.length){
+      var n=parseInt((r2.data[0].codigo||'').replace('AL-',''));
+      if(!isNaN(n)) prox=n+1;
+    }
+    document.getElementById('fc').value='AL-'+prox;
+    /* estilo visual para indicar que é editável */
+    document.getElementById('fc').style.background='#fff';
+    document.getElementById('fc').style.borderColor='var(--azul2)';
+  }
+  document.getElementById('mf').classList.add('ab');
+}
+
+function fecharForm(){
+  document.getElementById('mf').classList.remove('ab');
+  document.getElementById('sug').style.display='none';
+  _formAberto=false;
+}
+
+function mudaUnidade(){
+  var cx=document.getElementById('fu').value==='CX';
+  document.getElementById('cmp-caixa').style.display=cx?'block':'none';
+  if(!cx) document.getElementById('fqc').value='1';
+}
+
+/* abrirAplForm — abre o modal de aplicação a partir do formulário de item */
+function abrirAplForm(){
+  _aplPrevIdx = null;
+  _apl.codigo  = '__form__'; /* flag especial: salva de volta no campo fapl */
+  _apl.marcasSel=[]; _apl.modelos={}; _apl.marcaAtiva=null;
+
+  var aplAtual = document.getElementById('fapl').value.trim();
+  if(aplAtual && aplAtual !== 'N/A'){
+    aplAtual.split('|').forEach(function(parte){
+      var idx=parte.indexOf(':');
+      if(idx<0) return;
+      var marca=parte.substring(0,idx).trim();
+      var carros=parte.substring(idx+1).split(';').map(function(c){ return c.trim(); }).filter(Boolean);
+      if(marca){
+        if(_apl.marcasSel.indexOf(marca)<0) _apl.marcasSel.push(marca);
+        _apl.modelos[marca]=carros;
+      }
+    });
+    if(_apl.marcasSel.length) _apl.marcaAtiva=_apl.marcasSel[0];
+  }
+
+  document.getElementById('nova-marca').value='';
+  document.getElementById('inp-aplicacao').value='';
+  renderChipsMarcas();
+  renderSecaoModelos();
+  atualizarPreviewApl();
+  document.getElementById('mma').classList.add('ab');
+}
+async function buscaSug(){
+  var termo=document.getElementById('fn').value.trim();
+  var el=document.getElementById('sug');
+  el.innerHTML=''; el.style.display='none';
+  if(termo.length<2) return;
+
+  var r=await db.from('itens').select('codigo,nome,unidade,valor_unitario').ilike('nome','%'+termo+'%').limit(8);
+  if(!r.data||!r.data.length) return;
+
+  r.data.forEach(function(it){
+    var div=document.createElement('div');
+    div.style.cssText='padding:6px 10px;cursor:pointer;font-size:.85rem;border-bottom:1px solid #eee';
+    div.textContent=it.nome+' ['+it.codigo+']';
+    div.onmousedown=function(e){
+      e.preventDefault();
+      /* selecionar_sugestao */
+      document.getElementById('fc').value  =it.codigo;
+      document.getElementById('fc').readOnly=false;
+      document.getElementById('fn').value  =it.nome;
+      document.getElementById('fu').value  =it.unidade||'UN';
+      document.getElementById('fv').value  =Number(it.valor_unitario).toFixed(2);
+      document.getElementById('fmodo').value='editar-est';
+      mudaUnidade();
+      el.style.display='none';
+    };
+    div.onmouseover=function(){ div.style.background='#eef2ff'; };
+    div.onmouseout =function(){ div.style.background=''; };
+    el.appendChild(div);
+  });
+  el.style.display='block';
+}
+
+/* navegação por teclado na lista de sugestões */
+function tecladoSug(e){
+  var el=document.getElementById('sug');
+  if(el.style.display==='none') return;
+  var items=el.querySelectorAll('div');
+  var idx=-1;
+  items.forEach(function(d,i){ if(d.classList.contains('sel')) idx=i; });
+  if(e.key==='ArrowDown'){ e.preventDefault(); idx=Math.min(idx+1,items.length-1); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); idx=Math.max(idx-1,0); }
+  else if(e.key==='Enter'&&idx>=0){ e.preventDefault(); items[idx].dispatchEvent(new MouseEvent('mousedown')); return; }
+  else return;
+  items.forEach(function(d){ d.classList.remove('sel'); d.style.background=''; });
+  if(idx>=0){ items[idx].classList.add('sel'); items[idx].style.background='#eef2ff'; }
+}
+
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#mf')) document.getElementById('sug').style.display='none';
+});
+
+/* salvar_novo_item */
+async function salvarItem(){
+  var modo   = document.getElementById('fmodo').value;
+  var orig   = document.getElementById('forig').value;
+  var codigo = document.getElementById('fc').value.trim();
+  var nome   = document.getElementById('fn').value.trim();
+  var unid   = document.getElementById('fu').value;
+  var qtdCx  = parseInt(document.getElementById('fqc').value)||1;
+  var est    = parseInt(document.getElementById('fe').value)  || 0;
+  var val    = parseFloat(document.getElementById('fv').value.replace(',','.'))  || 0;
+  var pv     = parseFloat(document.getElementById('fpv').value.replace(',','.')) || 0;
+  var marca  = document.getElementById('fmarca').value.trim()||null;
+  var apl    = document.getElementById('fapl').value.trim()||null;
+  var catId  = document.getElementById('fcat').value||null;
+  var emin   = parseInt(document.getElementById('fmin').value)||0;
+  var emax   = parseInt(document.getElementById('fmax').value)||1000;
+
+  if(!codigo||!nome){ toast('Código e Nome são obrigatórios!','er'); return; }
+
+  /* ── Validação markup mínimo 40% sobre custo ──
+     Só bloqueia se custo > 0 E pv > 0 E markup < LIMITE_MARGEM ── */
+  if(val>0 && pv>0){
+    var _margem=(pv-val)/val*100;
+    if(_margem < LIMITE_MARGEM){
+      var _pvMin = Math.ceil((val*(1+LIMITE_MARGEM/100))*100)/100;
+      var _fpv=document.getElementById('fpv');
+      _fpv.style.border='2px solid #dc3545';
+      _fpv.style.background='#fff5f5';
+      setTimeout(function(){_fpv.style.border='';_fpv.style.background='';},4000);
+      var _itens=[{
+        nome: nome||codigo, custo: val, pvAtual: pv,
+        margem: _margem, pvMin: _pvMin
+      }];
+      _mmcCallback = function(){ _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,marca,apl,catId,emin,emax); };
+      mmcAbrir(_itens,'1 item com markup abaixo de '+LIMITE_MARGEM+'%');
+      return;
+    }
+  }
+
+  /* passou na validação — executa direto */
+  _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,marca,apl,catId,emin,emax);
+}
+
+async function _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,marca,apl,catId,emin,emax){
+  try{
+    if(modo==='editar-est'){
+      var ri=await db.from('itens').select('estoque,valor_unitario').eq('codigo',codigo).single();
+      if(ri.error) throw new Error(ri.error.message);
+      var vt=est*ri.data.valor_unitario;
+      var upd=await db.from('itens').update({estoque:ri.data.estoque+est}).eq('codigo',codigo);
+      if(upd.error) throw new Error(upd.error.message);
+      await db.from('historico_compras').insert({data:new Date().toISOString(),valor_total:vt,chave_nfe:null});
+      toast('Estoque atualizado com sucesso!','ok');
+      fecharForm(); carregarTudo(); return;
+    }
+
+    if(modo==='novo'){
+      var chk=await db.from('itens').select('codigo').eq('codigo',codigo).maybeSingle();
+      if(chk.data){ toast('Código já existe no sistema!','er'); return; }
+      var ins=await db.from('itens').insert({
+        codigo,nome,unidade:unid,qtd_por_caixa:qtdCx,
+        estoque:est,estoque_inicial:est,valor_unitario:val,
+        preco_venda:pv,marca:marca,aplicacao:apl,
+        categoria_id:catId?parseInt(catId):null,
+        estoque_min:emin,estoque_max:emax
+      });
+      if(ins.error) throw new Error(ins.error.message);
+      await db.from('historico_compras').insert({data:new Date().toISOString(),valor_total:est*val,chave_nfe:null});
+      toast('Item cadastrado com sucesso!','ok');
+    }
+
+    if(modo==='editar'){
+      if(codigo!==orig){
+        var chk2=await db.from('itens').select('codigo').eq('codigo',codigo).maybeSingle();
+        if(chk2.data){ toast('Novo código já existe no sistema!','er'); return; }
+      }
+      var upd2=await db.from('itens').update({
+        codigo,nome,unidade:unid,qtd_por_caixa:qtdCx,
+        estoque:est,valor_unitario:val,preco_venda:pv,
+        marca:marca,aplicacao:apl,
+        categoria_id:catId?parseInt(catId):null,
+        estoque_min:emin,estoque_max:emax
+      }).eq('codigo',orig);
+      if(upd2.error) throw new Error(upd2.error.message);
+      toast('Item atualizado com sucesso!','ok');
+    }
+
+    fecharForm(); carregarTudo();
+  }catch(e){
+    toast('❌ '+e.message,'er');
+  }
+}
+
+/* excluir_item */
+async function excluirItem(codigo){
+  if(!confirm('Excluir item '+codigo+'?\nSerá movido para a lixeira.')) return;
+  try{
+    var ri=await db.from('itens').select('*').eq('codigo',codigo).single();
+    if(ri.error) throw new Error(ri.error.message);
+    var it=ri.data;
+
+    /* INSERT lixeira */
+    await db.from('lixeira').insert({
+      codigo:it.codigo,nome:it.nome,unidade:it.unidade,
+      estoque:it.estoque,valor_unitario:it.valor_unitario,
+      data_exclusao:new Date().toISOString(),excluido_por:USERNAME
+    });
+    /* INSERT movimentacoes EXCLUSAO */
+    await db.from('movimentacoes').insert({
+      item_codigo:codigo,tipo:'EXCLUSAO',quantidade:0,
+      data:new Date().toISOString(),responsavel:USERNAME
+    });
+    /* DELETE */
+    var del=await db.from('itens').delete().eq('codigo',codigo);
+    if(del.error) throw new Error(del.error.message);
+
+    toast('Item movido para a lixeira!','ok');
+    carregarTudo();
+  }catch(e){
+    toast('❌ '+e.message,'er');
+  }
+}
+
+/* ══════════════════════════════════════════
+   MODAL APLICAÇÃO
+   — Marca = coluna de texto livre (editCel normal)
+   — Aplicação = modal: escolhe marca do CARRO + digita modelos
+   — Formato salvo: "Fiat: Uno; Palio | Chevrolet: Onix; Tracker"
+══════════════════════════════════════════ */
+
+var MARCAS_CARROS = [
+  'Fiat','Chevrolet','Volkswagen','Ford','Toyota','Honda',
+  'Hyundai','Renault','Jeep','Nissan','Mitsubishi','Peugeot',
+  'Citroën','BMW','Mercedes-Benz','Audi','Volvo','Kia',
+  'Suzuki','Subaru','Land Rover','Porsche','RAM'
+];
+
+var _apl = {
+  codigo: null,
+  marcasSel: [],      /* marcas de carros selecionadas */
+  modelos: {},        /* { "Fiat": ["Uno","Palio"], ... } */
+  marcaAtiva: null
+};
+
+function abrirAplicacao(codigo) {
+  console.log('[abrirAplicacao] codigo=', codigo);
+
+  _aplPrevIdx = null;
+  _apl.codigo     = codigo;
+  _apl.marcasSel  = [];
+  _apl.modelos    = {};
+  _apl.marcaAtiva = null;
+
+  /* Busca o valor atual da linha já carregada na tabela */
+  var celulas = document.querySelectorAll('#te tr');
+  var aplAtual = '';
+  celulas.forEach(function(tr){
+    var tds = tr.querySelectorAll('td');
+    if(tds.length >= 4 && tds[0].textContent.trim() === codigo){
+      aplAtual = tds[3].textContent.trim();
+    }
+  });
+  console.log('[abrirAplicacao] aplAtual=', aplAtual);
+
+  /* Parse da aplicação atual */
+  if(aplAtual && aplAtual !== 'N/A' && aplAtual !== '—'){
+    aplAtual.split('|').forEach(function(parte){
+      var idx = parte.indexOf(':');
+      if(idx < 0) return;
+      var marca  = parte.substring(0, idx).trim();
+      var carros = parte.substring(idx+1).split(';').map(function(c){ return c.trim(); }).filter(Boolean);
+      if(marca){
+        if(_apl.marcasSel.indexOf(marca) < 0) _apl.marcasSel.push(marca);
+        _apl.modelos[marca] = carros;
+      }
+    });
+    if(_apl.marcasSel.length) _apl.marcaAtiva = _apl.marcasSel[0];
+  }
+
+  document.getElementById('nova-marca').value    = '';
+  document.getElementById('inp-aplicacao').value = '';
+  renderChipsMarcas();
+  renderSecaoModelos();
+  atualizarPreviewApl();
+
+  console.log('[abrirAplicacao] abrindo modal #mma');
+  document.getElementById('mma').classList.add('ab');
+}
+
+function fecharMarcaApl() {
+  document.getElementById('mma').classList.remove('ab');
+}
+
+/* chips de marcas de carros */
+function renderChipsMarcas() {
+  var todas = MARCAS_CARROS.slice();
+  _apl.marcasSel.forEach(function(m){ if (todas.indexOf(m) < 0) todas.push(m); });
+
+  document.getElementById('lista-marcas').innerHTML = todas.map(function(m) {
+    var sel   = _apl.marcasSel.indexOf(m) >= 0;
+    var ativa = _apl.marcaAtiva === m;
+    var bg    = sel ? (ativa ? 'var(--azul)' : 'var(--azul2)') : '#e9ecef';
+    var cor   = sel ? '#fff' : '#555';
+    var brd   = ativa ? '2px solid var(--amarelo)' : '2px solid transparent';
+    return '<div onclick="toggleMarcaCarro(\''+eq(m)+'\')" style="padding:5px 14px;border-radius:20px;'+
+      'cursor:pointer;font-size:.83rem;font-weight:600;background:'+bg+';color:'+cor+';'+
+      'border:'+brd+';user-select:none;transition:.15s">'+eh(m)+(sel?' ✓':'')+'</div>';
+  }).join('');
+}
+
+function toggleMarcaCarro(marca) {
+  var idx = _apl.marcasSel.indexOf(marca);
+  if (idx >= 0) {
+    /* clique numa já selecionada = só muda a ativa */
+    _apl.marcaAtiva = marca;
+  } else {
+    _apl.marcasSel.push(marca);
+    _apl.marcaAtiva = marca;
+    if (!_apl.modelos[marca]) _apl.modelos[marca] = [];
+  }
+  renderChipsMarcas();
+  renderSecaoModelos();
+  atualizarPreviewApl();
+}
+
+function removerMarcaCarro(marca) {
+  var idx = _apl.marcasSel.indexOf(marca);
+  if (idx >= 0) _apl.marcasSel.splice(idx, 1);
+  delete _apl.modelos[marca];
+  if (_apl.marcaAtiva === marca) {
+    _apl.marcaAtiva = _apl.marcasSel.length ? _apl.marcasSel[0] : null;
+  }
+  renderChipsMarcas();
+  renderSecaoModelos();
+  atualizarPreviewApl();
+}
+
+function adicionarMarca() {
+  var v = document.getElementById('nova-marca').value.trim();
+  if (!v) return;
+  v = v.charAt(0).toUpperCase() + v.slice(1);
+  if (_apl.marcasSel.indexOf(v) < 0) { _apl.marcasSel.push(v); _apl.modelos[v] = []; }
+  _apl.marcaAtiva = v;
+  document.getElementById('nova-marca').value = '';
+  renderChipsMarcas();
+  renderSecaoModelos();
+  atualizarPreviewApl();
+  setTimeout(function(){ document.getElementById('inp-aplicacao').focus(); }, 80);
+}
+
+/* seção de modelos da marca ativa */
+function renderSecaoModelos() {
+  var sec = document.getElementById('secao-aplicacao');
+  if (!_apl.marcaAtiva) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  document.getElementById('marca-ativa-label').textContent = _apl.marcaAtiva;
+
+  var carros = _apl.modelos[_apl.marcaAtiva] || [];
+  document.getElementById('chips-aplicacao').innerHTML = carros.map(function(c, i) {
+    return '<div style="display:flex;align-items:center;gap:4px;background:var(--azul2);color:#fff;'+
+      'padding:4px 10px;border-radius:16px;font-size:.82rem">'+eh(c)+
+      '<span onclick="removerModelo('+i+')" style="cursor:pointer;margin-left:2px;font-size:1.1rem;line-height:1">×</span>'+
+    '</div>';
+  }).join('');
+}
+
+function adicionarModelo() {
+  var v = document.getElementById('inp-aplicacao').value.trim();
+  if (!v || !_apl.marcaAtiva) return;
+  if (!_apl.modelos[_apl.marcaAtiva]) _apl.modelos[_apl.marcaAtiva] = [];
+  /* suporta múltiplos separados por ; */
+  v.split(';').map(function(s){ return s.trim(); }).filter(Boolean).forEach(function(m) {
+    if (_apl.modelos[_apl.marcaAtiva].indexOf(m) < 0) _apl.modelos[_apl.marcaAtiva].push(m);
+  });
+  document.getElementById('inp-aplicacao').value = '';
+  renderSecaoModelos();
+  atualizarPreviewApl();
+}
+
+function removerModelo(idx) {
+  if (!_apl.marcaAtiva) return;
+  _apl.modelos[_apl.marcaAtiva].splice(idx, 1);
+  renderSecaoModelos();
+  atualizarPreviewApl();
+}
+
+function atualizarPreviewApl() {
+  var partes = [];
+  _apl.marcasSel.forEach(function(m) {
+    var carros = _apl.modelos[m] || [];
+    partes.push(carros.length ? m+': '+carros.join('; ') : m);
+  });
+  document.getElementById('preview-aplicacao').textContent = partes.join(' | ') || '—';
+}
+
+async function salvarMarcaApl() {
+  var partes = [];
+  _apl.marcasSel.forEach(function(m) {
+    var carros = _apl.modelos[m] || [];
+    partes.push(carros.length ? m+': '+carros.join('; ') : m);
+  });
+  var aplStr = partes.join(' | ') || null;
+
+  document.getElementById('mma').classList.remove('ab');
+
+  /* CONTEXTO 1: preview de NF-e */
+  if(_aplPrevIdx !== null){
+    _nfeParsed.itens[_aplPrevIdx].aplicacao = aplStr || '';
+    _aplPrevIdx = null;
+    renderPreview();
+    return;
+  }
+
+  /* CONTEXTO 2: formulário de novo/editar item */
+  if(_apl.codigo === '__form__'){
+    document.getElementById('fapl').value = aplStr || '';
+    _apl.codigo = null;
+    return;
+  }
+
+  /* CONTEXTO 3: edição rápida — salva direto no banco */
+  if(!_apl.codigo){ toast('Erro: item não identificado.','er'); return; }
+  var upd = await db.from('itens').update({aplicacao:aplStr}).eq('codigo',_apl.codigo);
+  if(upd.error){ toast('❌ Erro: '+upd.error.message,'er'); return; }
+  toast('✅ Aplicação salva!','ok');
+  carregarEdicao(document.getElementById('be').value.trim());
+}
+
+/* ══════════════════════════════════════════
+   GESTÃO DE ESTOQUE
+   — Em falta: estoque <= 0
+   — Crítico:  0 < estoque < estoque_min
+   — Disponível: estoque >= estoque_min
+   — Filtros: situação, marca do carro, modelo, nome/código
+══════════════════════════════════════════ */
+var _gestaoItens = [];   /* cache completo */
+var _gestaoSit   = 'falta'; /* filtro situação ativo */
+
+async function carregarGestao(){
+  var tbody = document.getElementById('tg');
+  tbody.innerHTML = '<tr class="vz"><td colspan="12">Carregando...</td></tr>';
+
+  /* busca todos os itens sem filtro de estoque */
+  var r = await db.from('itens')
+    .select('codigo,nome,marca,aplicacao,estoque,estoque_min,estoque_max,valor_unitario,preco_venda,categoria_id')
+    .order('codigo');
+
+  if(r.error){ tbody.innerHTML='<tr class="vz"><td colspan="12">❌ '+eh(r.error.message)+'</td></tr>'; return; }
+  _gestaoItens = r.data || [];
+
+  /* monta lista de marcas de carro únicas a partir do campo aplicacao */
+  var marcasSet = {};
+  _gestaoItens.forEach(function(it){
+    if(!it.aplicacao) return;
+    it.aplicacao.split('|').forEach(function(p){
+      var m = p.split(':')[0].trim();
+      if(m && m!=='N/A') marcasSet[m]=1;
+    });
+  });
+  var sel = document.getElementById('fg-marca');
+  var valAtual = sel.value;
+  sel.innerHTML = '<option value="">🚗 Todas as marcas</option>';
+  Object.keys(marcasSet).sort().forEach(function(m){
+    var op = document.createElement('option');
+    op.value = m; op.textContent = m;
+    if(m === valAtual) op.selected = true;
+    sel.appendChild(op);
+  });
+
+  aplicarFiltrosGestao();
+}
+
+function setFiltroSit(sit){
+  _gestaoSit = sit;
+  /* atualiza estilo dos botões */
+  ['falta','critico','disponivel','todos'].forEach(function(s){
+    var btn = document.getElementById('fg-'+s);
+    if(s===sit){
+      btn.style.background='#fff'; btn.style.color='#c0392b'; btn.style.fontWeight='700';
+    }else{
+      btn.style.background='rgba(255,255,255,.2)'; btn.style.color='#fff'; btn.style.fontWeight='600';
+    }
+  });
+  aplicarFiltrosGestao();
+}
+
+function limparFiltrosGestao(){
+  document.getElementById('fg-marca').value='';
+  document.getElementById('fg-carro').value='';
+  document.getElementById('fg-item').value='';
+  document.getElementById('fg-cat').value='';
+  setFiltroSit('falta');
+}
+
+function aplicarFiltrosGestao(){
+  var sit    = _gestaoSit;
+  var marca  = document.getElementById('fg-marca').value.trim().toLowerCase();
+  var carro  = document.getElementById('fg-carro').value.trim().toLowerCase();
+  var item   = document.getElementById('fg-item').value.trim().toLowerCase();
+  var catId  = document.getElementById('fg-cat').value;
+
+  var contFalta=0, contCrit=0, contDisp=0;
+
+  var filtrado = _gestaoItens.filter(function(it){
+    var est  = it.estoque || 0;
+    var emin = it.estoque_min || 0;
+    var situ = est <= 0 ? 'falta' : est < emin ? 'critico' : 'disponivel';
+
+    if(situ==='falta')        contFalta++;
+    else if(situ==='critico') contCrit++;
+    else                      contDisp++;
+
+    if(sit !== 'todos' && situ !== sit) return false;
+    if(item && !it.codigo.toLowerCase().includes(item) && !it.nome.toLowerCase().includes(item)) return false;
+    if(catId && String(it.categoria_id) !== String(catId)) return false;
+
+    if(marca || carro){
+      var apl = (it.aplicacao||'').toLowerCase();
+      if(marca && !apl.includes(marca)) return false;
+      if(carro && !apl.includes(carro)) return false;
+    }
+
+    return true;
+  });
+
+  document.getElementById('gc-falta').innerHTML='<strong>'+contFalta+'</strong>⚠️ Em Falta (estoque = 0)';
+  document.getElementById('gc-critico').innerHTML='<strong>'+contCrit+'</strong>🔴 Crítico (abaixo do mín.)';
+  document.getElementById('gc-disponivel').innerHTML='<strong>'+contDisp+'</strong>🟢 Disponível';
+  document.getElementById('gc-total').innerHTML='<strong>'+_gestaoItens.length+'</strong>📋 Total de itens';
+
+  renderGestao(filtrado);
+}
+
+function renderGestao(rows){
+  var tbody = document.getElementById('tg');
+  if(!rows.length){
+    tbody.innerHTML='<tr class="vz"><td colspan="12">Nenhum item encontrado com esses filtros.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(function(it){
+    var est  = it.estoque || 0;
+    var emin = it.estoque_min || 0;
+
+    var sit, sitCor, sitBg;
+    if(est <= 0){
+      sit='⚠️ EM FALTA'; sitBg='#f8d7da'; sitCor='#721c24';
+    }else if(est < emin){
+      sit='🔴 CRÍTICO';  sitBg='#fff3cd'; sitCor='#856404';
+    }else{
+      sit='🟢 OK';       sitBg='#d4edda'; sitCor='#155724';
+    }
+
+    /* categoria */
+    var cat = getCat(it.categoria_id);
+    var catHtml = cat
+      ? '<span style="background:'+cat.cor+';color:#fff;padding:2px 9px;border-radius:10px;font-size:.75rem;white-space:nowrap">'+eh(cat.icone+' '+cat.nome)+'</span>'
+      : '<span style="color:#aaa;font-size:.75rem">—</span>';
+
+    /* aplicação */
+    var aplHtml = '—';
+    if(it.aplicacao && it.aplicacao !== 'N/A'){
+      aplHtml = it.aplicacao.split('|').map(function(p){
+        var idx = p.indexOf(':');
+        if(idx<0) return '<span style="background:#e9ecef;border-radius:10px;padding:1px 8px;font-size:.78rem">'+eh(p.trim())+'</span>';
+        var marca  = p.substring(0,idx).trim();
+        var carros = p.substring(idx+1).trim();
+        return '<div style="font-size:.78rem;margin-bottom:2px">'+
+          '<span style="background:var(--azul2);color:#fff;border-radius:10px;padding:1px 8px;font-weight:700">'+eh(marca)+'</span> '+
+          '<span style="color:#555">'+eh(carros)+'</span></div>';
+      }).join('');
+    }
+
+    return '<tr style="border-bottom:1px solid #eee">'+
+      '<td style="padding:7px 10px"><span style="background:'+sitBg+';color:'+sitCor+';padding:3px 10px;border-radius:12px;font-size:.78rem;font-weight:700;white-space:nowrap">'+sit+'</span></td>'+
+      '<td style="padding:7px 8px">'+catHtml+'</td>'+
+      '<td style="padding:7px 10px;font-family:monospace;font-size:.8rem">'+eh(it.codigo)+'</td>'+
+      '<td style="padding:7px 10px;max-width:200px">'+eh(it.nome)+'</td>'+
+      '<td style="padding:7px 10px">'+eh(it.marca||'—')+'</td>'+
+      '<td style="padding:7px 10px;max-width:220px">'+aplHtml+'</td>'+
+      '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+(est<=0?'#dc3545':est<emin?'#e67e22':'#28a745')+'">'+est+'</td>'+
+      '<td style="padding:7px 10px;text-align:center">'+emin+'</td>'+
+      '<td style="padding:7px 10px;text-align:center">'+(it.estoque_max||'—')+'</td>'+
+      '<td style="padding:7px 10px;text-align:right">'+brl(it.valor_unitario)+'</td>'+
+      '<td style="padding:7px 10px;text-align:right">'+brl(it.preco_venda)+'</td>'+
+      '<td style="padding:7px 10px;white-space:nowrap">'+
+        '<button class="btn ba2 bsm" onclick="abrirForm(\''+eq(it.codigo)+'\')">✏️</button> '+
+        '<button class="btn bv bsm"  onclick="abrirForm(\''+eq(it.codigo)+'\')" title="Adicionar estoque">+📦</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+}
+
+/* ══════════════════════════════════════════
+   CATEGORIAS
+══════════════════════════════════════════ */
+var _cats=[];
+
+async function carregarCategorias(){
+  var r=await db.from('categorias').select('*').eq('ativa',true).order('ordem');
+  if(r.error||!r.data) return;
+  _cats=r.data;
+  /* popula select do form */
+  var sel=document.getElementById('fcat');
+  if(sel){
+    var v=sel.value;
+    sel.innerHTML='<option value="">— Selecione a categoria —</option>';
+    _cats.forEach(function(c){
+      var op=document.createElement('option');
+      op.value=c.id; op.textContent=c.icone+' '+c.nome;
+      if(String(c.id)===String(v)) op.selected=true;
+      sel.appendChild(op);
+    });
+  }
+  /* popula filtro gestão */
+  var fg=document.getElementById('fg-cat');
+  if(fg){
+    fg.innerHTML='<option value="">📦 Todas as categorias</option>';
+    _cats.forEach(function(c){
+      var op=document.createElement('option');
+      op.value=c.id; op.textContent=c.icone+' '+c.nome;
+      fg.appendChild(op);
+    });
+  }
+}
+
+function getCat(id){
+  if(!id) return null;
+  return _cats.find(function(c){ return String(c.id)===String(id); })||null;
+}
+
+function buildCatOptions(selectedId){
+  var html='<option value="">— Categoria —</option>';
+  _cats.forEach(function(c){
+    html+='<option value="'+c.id+'"'+(String(c.id)===String(selectedId)?' selected':'')+'>'+eh(c.icone+' '+c.nome)+'</option>';
+  });
+  return html;
+}
+
+/* setter de categoria no preview */
+function setCatPrev(sel){
+  var i=parseInt(sel.getAttribute('data-idx'));
+  _nfeParsed.itens[i].categoria_id=sel.value||null;
+}
+
+/* ── SERPER.DEV ──
+   Chave para busca de imagens e EANs (2500 req/mês grátis em serper.dev) */
+var SERPER_KEY='eacff68441e843d8be5b24f0cb56f1c65d2a64f6';
+
+/* ══════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   TOKEN TRACKER — Gemini
+══════════════════════════════════════════ */
+var _tk = JSON.parse(localStorage.getItem('gemini_tokens')||'{"in":0,"out":0,"calls":0,"log":[]}');
+
+var PRECO_IN  = 0.07  / 1_000_000; /* $0.07 por 1M tokens input  */
+var PRECO_OUT = 0.27  / 1_000_000; /* $0.27 por 1M tokens output */
+
+function salvarTokens(){ localStorage.setItem('gemini_tokens', JSON.stringify(_tk)); }
+
+function registrarTokens(promptTokens, completionTokens, nomeProduto){
+  _tk.in    += promptTokens;
+  _tk.out   += completionTokens;
+  _tk.calls += 1;
+  _tk.log.unshift({
+    ts:  new Date().toLocaleString('pt-BR'),
+    nome: nomeProduto,
+    in:  promptTokens,
+    out: completionTokens,
+    custo: (promptTokens*PRECO_IN + completionTokens*PRECO_OUT)
+  });
+  if(_tk.log.length > 50) _tk.log.pop(); /* mantém só últimas 50 */
+  salvarTokens();
+  atualizarBarraTokens();
+}
+
+function atualizarBarraTokens(){
+  var custo = _tk.in*PRECO_IN + _tk.out*PRECO_OUT;
+  document.getElementById('tk-in').textContent    = _tk.in.toLocaleString('pt-BR');
+  document.getElementById('tk-out').textContent   = _tk.out.toLocaleString('pt-BR');
+  document.getElementById('tk-tot').textContent   = (_tk.in+_tk.out).toLocaleString('pt-BR');
+  document.getElementById('tk-custo').textContent = '$'+custo.toFixed(6);
+  document.getElementById('tk-calls').textContent = _tk.calls;
+
+  /* log detalhado */
+  document.getElementById('token-log').innerHTML = _tk.log.length
+    ? _tk.log.map(function(l){
+        return '<div style="padding:2px 0;border-bottom:1px solid #313244;display:flex;gap:12px;align-items:center">'+
+          '<span style="color:#585b70;white-space:nowrap">'+l.ts+'</span>'+
+          '<span style="flex:1;color:#cba6f7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+eh(l.nome)+'</span>'+
+          '<span style="color:#89b4fa;white-space:nowrap">📥'+l.in+'</span>'+
+          '<span style="color:#a6e3a1;white-space:nowrap">📤'+l.out+'</span>'+
+          '<span style="color:#f9e2af;white-space:nowrap">$'+l.custo.toFixed(6)+'</span>'+
+        '</div>';
+      }).join('')
+    : '<div style="color:#585b70;padding:4px">Nenhuma consulta ainda.</div>';
+}
+
+function toggleTokenDetail(){
+  var d = document.getElementById('token-detail');
+  d.style.display = d.style.display==='none' ? 'block' : 'none';
+}
+
+function resetTokens(e){
+  e.stopPropagation();
+  if(!confirm('Zerar histórico de tokens?')) return;
+  _tk = {in:0,out:0,calls:0,log:[]};
+  salvarTokens();
+  atualizarBarraTokens();
+  toast('Tokens zerados!','ok');
+}
+var GEMINI_KEY = 'AIzaSyDTKN8wq1allT2b3HoLVFFE-qVhHxhLylQ';
+
+async function sugerirAplicacaoIA(){
+  var codigo = document.getElementById('fc').value.trim();
+  var nome   = document.getElementById('fn').value.trim();
+  var marca  = document.getElementById('fmarca').value.trim();
+
+  if(!nome){ toast('Preencha o nome do produto primeiro!','er'); return; }
+
+  var status = document.getElementById('ai-status');
+  status.style.display    = 'block';
+  status.style.background = '#eef2ff';
+  status.style.color      = 'var(--azul2)';
+  status.textContent      = '🤖 Consultando IA...';
+
+  var prompt = nome+(marca?' [fab:'+marca+']':'');
+
+  try{
+    var resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+GEMINI_KEY,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: 'Você é um especialista em peças automotivas do mercado brasileiro. Quando receber o nome de uma peça, pesquise na internet as aplicações reais e específicas dessa peça. Use o nome comercial, código e fabricante para encontrar a ficha técnica oficial ou catálogos de aplicação (como Bosch, NGK, Mahle, Monroe, TRW, etc). NUNCA invente ou suponha aplicações — use apenas dados confirmados de catálogos reais. Se encontrar os dados: responda SOMENTE no formato MarcaVeiculo: Modelo; Modelo | MarcaVeiculo: Modelo (sem nenhum outro texto). Se não encontrar dados confiáveis: responda SOMENTE a palavra definir manualmente.' }] },
+          generationConfig: { temperature: 0, maxOutputTokens: 200 },
+          tools: [{ google_search: {} }]
+        })
+      }
+    );
+
+    if(!resp.ok){
+      var err = await resp.json();
+      throw new Error(err.error?.message || 'Erro '+resp.status);
+    }
+
+    var data  = await resp.json();
+    var texto = ((data.candidates||[])[0]?.content?.parts?.[0]?.text || '').trim();
+
+    /* registra tokens usados */
+    var uso = data.usageMetadata || {};
+    registrarTokens(uso.promptTokenCount||0, uso.candidatesTokenCount||0, nome);
+
+    if(!texto){ throw new Error('Resposta vazia da IA'); }
+
+    var limpo  = texto.replace(/\n/g,' ').replace(/\s{2,}/g,' ').trim();
+    var manual = /definir manualmente/i.test(limpo);
+
+    document.getElementById('fapl').value = manual ? '' : limpo;
+
+    status.style.background = manual ? '#fff3cd' : '#d4edda';
+    status.style.color      = manual ? '#856404' : '#155724';
+    status.textContent      = manual
+      ? '⚠️ IA não reconheceu esta peça — preencha a aplicação manualmente.'
+      : '✅ Aplicação sugerida! Revise e clique em 🚗 Editar para ajustar.';
+    setTimeout(function(){
+      status.style.display='none';
+      status.style.background='#eef2ff';
+      status.style.color='var(--azul2)';
+    }, 5000);
+    toast(manual ? '⚠️ Peça desconhecida — defina manualmente' : '🤖 Aplicação preenchida!', manual?'av':'ok');
+
+  }catch(e){
+    status.style.background='#f8d7da';
+    status.style.color='#721c24';
+    status.textContent='❌ Erro: '+e.message;
+    setTimeout(function(){
+      status.style.display='none';
+      status.style.background='#eef2ff';
+      status.style.color='var(--azul2)';
+    }, 4000);
+    toast('❌ IA: '+e.message,'er');
+    console.error('[Gemini]',e);
+  }
+}
+
+/* ══════════════════════════════════════════
+   IA APLICAÇÃO — PREVIEW NF-e
+   Botão 🤖 em cada linha da tabela de preview
+══════════════════════════════════════════ */
+async function sugerirAplicacaoIAPreview(i){
+  var it  = _nfeParsed.itens[i];
+  var btn = document.getElementById('btn-ia-'+i);
+
+  /* feedback visual no botão */
+  var orig = btn.innerHTML;
+  btn.disabled  = true;
+  btn.innerHTML = '⏳';
+  btn.style.opacity = '.6';
+
+  var prompt = it.nome+(it.marca?' [fab:'+it.marca+']':'');
+
+  try{
+    var resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+GEMINI_KEY,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: 'Você é um especialista em peças automotivas do mercado brasileiro. Quando receber o nome de uma peça, pesquise na internet as aplicações reais e específicas dessa peça. Use o nome comercial, código e fabricante para encontrar a ficha técnica oficial ou catálogos de aplicação (como Bosch, NGK, Mahle, Monroe, TRW, etc). NUNCA invente ou suponha aplicações — use apenas dados confirmados de catálogos reais. Se encontrar os dados: responda SOMENTE no formato MarcaVeiculo: Modelo; Modelo | MarcaVeiculo: Modelo (sem nenhum outro texto). Se não encontrar dados confiáveis: responda SOMENTE a palavra definir manualmente.' }] },
+          generationConfig: { temperature: 0, maxOutputTokens: 200 },
+          tools: [{ google_search: {} }]
+        })
+      }
+    );
+
+    if(!resp.ok){ var er=await resp.json(); throw new Error(er.error?.message||'Erro '+resp.status); }
+
+    var data  = await resp.json();
+    var texto = ((data.candidates||[])[0]?.content?.parts?.[0]?.text || '').trim();
+
+    /* registra tokens */
+    var uso = data.usageMetadata||{};
+    registrarTokens(uso.promptTokenCount||0, uso.candidatesTokenCount||0, it.nome);
+
+    if(!texto) throw new Error('Resposta vazia');
+
+    var limpo = texto.replace(/\n/g,' ').replace(/\s{2,}/g,' ').trim();
+
+    /* grava no objeto e re-renderiza APENAS a célula */
+    _nfeParsed.itens[i].aplicacao = limpo;
+
+    var span = document.querySelector('#td-apl-'+i+' span');
+    if(span) span.textContent = limpo;
+
+    btn.innerHTML  = '✅';
+    btn.style.background = 'var(--verde)';
+    btn.style.opacity    = '1';
+    setTimeout(function(){
+      btn.innerHTML        = '🤖';
+      btn.style.background = 'linear-gradient(135deg,#6e40c9,#5271ff)';
+      btn.disabled         = false;
+    }, 2500);
+
+    toast('🤖 Aplicação preenchida: '+it.nome,'ok');
+
+  }catch(e){
+    btn.innerHTML        = '❌';
+    btn.style.background = 'var(--vermelho)';
+    btn.style.opacity    = '1';
+    btn.disabled         = false;
+    setTimeout(function(){
+      btn.innerHTML        = orig;
+      btn.style.background = 'linear-gradient(135deg,#6e40c9,#5271ff)';
+    }, 3000);
+    toast('❌ IA: '+e.message,'er');
+    console.error('[IAPreview]',e);
+  }
+}
+
+/* ── SERPER.DEV ──
+   Chave para busca de imagens e EANs (2500 req/mês grátis em serper.dev) */
+
+/* ══════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   ALERTA DE MARGEM BAIXA
+   Limite: 40% de margem
+   Fórmula: margem = (pv - custo) / pv * 100
+   Novo preço p/ 40%: pv = custo / (1 - 0.40)  →  custo / 0.60
+══════════════════════════════════════════ */
+var _margemTodos=[];
+var _modoPreview=false;
+var _previewMap={};   /* codigo → novo_preco */
+
+var LIMITE_MARGEM=40;
+
+/* Markup sobre custo: lucro% = (pv - custo) / custo * 100
+   Mínimo: pv >= custo * (1 + limite/100)  → custo * 1.40 para 40% */
+function calcMargem(custo,pv){
+  if(!custo||custo<=0) return null; /* sem custo não tem como calcular */
+  if(!pv||pv<=0) return -999;       /* preço zero = prejuízo total */
+  return (pv-custo)/custo*100;
+}
+
+/* Preço mínimo para markup LIMITE_MARGEM% sobre custo */
+function pvParaMargem(custo,limite){
+  if(!custo||custo<=0) return null;
+  return custo*(1+limite/100);      /* custo * 1.40 para 40% */
+}
+
+async function carregarMargem(termoBusca){
+  var el=document.getElementById('tm');
+  el.innerHTML='<tr class="vz"><td colspan="10">Carregando...</td></tr>';
+
+  _modoPreview=false; _previewMap={};
+  document.getElementById('btn-salvar-todos').style.display='none';
+  document.getElementById('btn-cancelar-prev').style.display='none';
+  document.getElementById('banner-preview').style.display='none';
+
+  /* 1 — itens com estoque > 0 */
+  var r=await db.from('itens')
+    .select('codigo,nome,marca,valor_unitario,preco_venda,estoque')
+    .gt('estoque',0)
+    .order('nome');
+  if(r.error){el.innerHTML='<tr class="vz"><td colspan="10">❌ '+eh(r.error.message)+'</td></tr>';return;}
+  var itens=r.data||[];
+  if(!itens.length){el.innerHTML='<tr class="vz"><td colspan="10">Nenhum item em estoque.</td></tr>';return;}
+
+  /* 2 — última movimentação de entrada por item (com chave_nfe) */
+  var codigos=itens.map(function(x){return x.codigo;});
+  var rMov=await db.from('movimentacoes')
+    .select('item_codigo,chave_nfe,data,tipo')
+    .in('item_codigo',codigos)
+    .in('tipo',['CRIACAO','ATUALIZACAO'])
+    .order('data',{ascending:false});
+
+  var ultimaMov={};
+  (rMov.data||[]).forEach(function(m){
+    if(!m.chave_nfe) return;
+    if(!ultimaMov[m.item_codigo]) ultimaMov[m.item_codigo]=m;
+  });
+
+  /* 3 — dados das NF-e únicas */
+  var chavesUnicas=[...new Set(Object.values(ultimaMov).map(function(m){return m.chave_nfe;}))];
+  var nfMap={};
+  if(chavesUnicas.length){
+    var rNf=await db.from('notas_fiscais')
+      .select('chave_nfe,arquivo,nome_emitente,cnpj_emitente,data_importacao')
+      .in('chave_nfe',chavesUnicas);
+    (rNf.data||[]).forEach(function(n){nfMap[n.chave_nfe]=n;});
+  }
+
+  /* 4 — anexa _nf e _movData em cada item */
+  itens.forEach(function(x){
+    var mov=ultimaMov[x.codigo];
+    x._nf  = mov&&nfMap[mov.chave_nfe] ? nfMap[mov.chave_nfe] : null;
+    x._movData = mov ? mov.data : null;
+  });
+
+  _margemTodos=itens;
+  renderMargem(termoBusca||'');
+}
+
+function renderMargem(filtro){
+  var el=document.getElementById('tm');
+  var rows=_margemTodos;
+
+  if(filtro){
+    var fl=filtro.toLowerCase();
+    rows=rows.filter(function(x){
+      return (x.codigo&&x.codigo.toLowerCase().includes(fl))
+        ||(x.nome&&x.nome.toLowerCase().includes(fl))
+        ||(x.marca&&x.marca.toLowerCase().includes(fl));
+    });
+  }
+
+  /* contadores */
+  var critico=0,atencao=0,baixo=0,ok=0,semPreco=0;
+  rows.forEach(function(x){
+    var m=calcMargem(x.valor_unitario||0,x.preco_venda||0);
+    if(m===null){semPreco++;}
+    else if(m<0){critico++;}
+    else if(m<20){atencao++;}
+    else if(m<LIMITE_MARGEM){baixo++;}
+    else{ok++;}
+  });
+
+  var totalAlerta=critico+atencao+baixo;
+
+  /* ordena: piores primeiro, ok por último */
+  var sorted=[].concat(rows).sort(function(a,b){
+    var ma=calcMargem(a.valor_unitario||0,a.preco_venda||0);
+    var mb=calcMargem(b.valor_unitario||0,b.preco_venda||0);
+    if(ma===null&&mb===null) return 0;
+    if(ma===null) return 1;
+    if(mb===null) return -1;
+    return ma-mb;
+  });
+
+  /* cards */
+  document.getElementById('mc-critico').innerHTML='<strong>'+critico+'</strong>🔴 Prejuízo / negativo';
+  document.getElementById('mc-atencao').innerHTML='<strong>'+atencao+'</strong>🟡 Crítico (1–19%)';
+  document.getElementById('mc-baixo').innerHTML=  '<strong>'+baixo+'</strong>🟠 Baixo (20–39%)';
+  document.getElementById('mc-ok').innerHTML=     '<strong>'+ok+'</strong>✅ Margem ≥ 40%';
+  document.getElementById('mc-sem').innerHTML=    '<strong>'+semPreco+'</strong>⚪ Sem preço';
+
+  /* badge na aba */
+  var badge=document.getElementById('badge-margem');
+  badge.textContent=totalAlerta;
+  badge.style.display=totalAlerta>0?'inline':'none';
+
+  if(!sorted.length){
+    el.innerHTML='<tr class="vz"><td colspan="10">Nenhum item encontrado.</td></tr>';
+    return;
+  }
+
+  el.innerHTML=sorted.map(function(x){
+    var custo=x.valor_unitario||0, pv=x.preco_venda||0;
+    var m=calcMargem(custo,pv);
+    var lucroUnit=m!==null?(pv-custo):null;
+    var novoPv=pvParaMargem(custo,LIMITE_MARGEM);
+    var precisaCorrigir=(m===null||m<LIMITE_MARGEM)&&custo>0;
+
+    /* badge de situação */
+    var badgeHtml, rowStyle;
+    if(m===null){
+      badgeHtml='<span class="badge-m sz">⚪ sem preço</span>'; rowStyle='';
+    } else if(m<0){
+      badgeHtml='<span class="badge-m cr">🔴 PREJUÍZO</span>'; rowStyle='background:#fdecea';
+    } else if(m<20){
+      badgeHtml='<span class="badge-m at">🟡 CRÍTICO '+m.toFixed(1)+'%</span>'; rowStyle='background:#fffbeb';
+    } else if(m<LIMITE_MARGEM){
+      badgeHtml='<span class="badge-m bx">🟠 BAIXO '+m.toFixed(1)+'%</span>'; rowStyle='background:#fff5eb';
+    } else {
+      badgeHtml='<span class="badge-m ok">✅ '+m.toFixed(1)+'%</span>'; rowStyle='';
+    }
+
+    /* se modo preview: sobrescreve com novo preço do map */
+    var pvExibido=pv;
+    var novoCelula, novoCelulaStyle='';
+    var rowExtraClass='';
+
+    if(_modoPreview&&_previewMap[x.codigo]!==undefined){
+      pvExibido=_previewMap[x.codigo];
+      novoCelula='<span class="prev-cell">'+brl(pvExibido)+'</span>';
+      novoCelulaStyle='background:#f0e6ff';
+      rowExtraClass=' prev-novo';
+    } else if(precisaCorrigir&&novoPv){
+      /* mostra sugestão; duplo clique abre input */
+      novoCelula='<span style="color:#7c3aed;font-weight:700;cursor:pointer" title="Duplo clique para editar">'+brl(novoPv)+'</span>';
+      novoCelulaStyle='background:#f0e6ff;cursor:pointer';
+    } else {
+      novoCelula='<span style="color:#28a745;font-size:.8rem">✅ ok</span>';
+    }
+
+    var margemCell=m!==null
+      ?'<td style="font-weight:700;color:'+(m<0?'#dc3545':m<20?'#856404':m<LIMITE_MARGEM?'#d4730a':'#28a745')+'">'+m.toFixed(1)+'%</td>'
+      :'<td style="color:#aaa">—</td>';
+
+    /* célula preço venda atual — duplo clique edita inline */
+    var pvCel='<td id="mpv-'+eq(x.codigo)+'" style="font-weight:600;cursor:pointer" '+
+      'ondblclick="editCelMargem(this,\''+eq(x.codigo)+'\')" title="Duplo clique para editar">'+brl(pv)+'</td>';
+
+    /* célula novo preço — duplo clique também edita */
+    var novoCel='<td id="mnovo-'+eq(x.codigo)+'" style="'+novoCelulaStyle+'" '+
+      'ondblclick="editCelMargem(document.getElementById(\'mpv-'+eq(x.codigo)+'\'),\''+eq(x.codigo)+'\')" title="Duplo clique para editar novo preço">'+
+      novoCelula+'</td>';
+
+    return '<tr id="mrow-'+eq(x.codigo)+'" style="'+rowStyle+'">'+
+      '<td>'+badgeHtml+'</td>'+
+      '<td style="font-size:.8rem;color:#555">'+eh(x.codigo)+'</td>'+
+      '<td>'+eh(x.nome)+'</td>'+
+      '<td>'+eh(x.marca||'—')+'</td>'+
+      '<td>'+brl(custo)+'</td>'+
+      pvCel+
+      margemCell+
+      novoCel+
+      '<td id="mlucro-'+eq(x.codigo)+'" style="font-weight:600;color:'+(lucroUnit===null?'#aaa':lucroUnit<0?'#dc3545':'#28a745')+'">'+
+        (lucroUnit===null?'—':brl(lucroUnit))+'</td>'+
+      (function(){
+        /* célula NF-e */
+        var nf=x._nf;
+        if(!nf) return '<td style="color:#aaa;font-size:.78rem;padding:6px 10px">—<br><span style="font-size:.7rem">sem NF</span></td>';
+        var nome=nf.nome_emitente||nf.arquivo||'NF importada';
+        var nomeExib=nome.length>24?nome.substring(0,24)+'…':nome;
+        var data=nf.data_importacao?dShort(nf.data_importacao):'';
+        var chave=nf.chave_nfe||'';
+        /* monta chave formatada em grupos de 4 para leitura */
+        var chaveFmt=chave.replace(/(.{4})/g,'$1 ').trim();
+        /* link consulta SEFAZ Nacional */
+        var sefazUrl=chave?'https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=completa&tipoConteudo=XbSeqxE8pl8=&nfe='+chave:'';
+        var safeCh=eq(chave);
+        return '<td style="font-size:.78rem;line-height:1.5;max-width:180px;padding:6px 8px">'+
+          /* fornecedor */
+          '<div style="font-weight:700;color:#0f766e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px" title="'+eh(nome)+'">📄 '+eh(nomeExib)+'</div>'+
+          /* cnpj + data */
+          '<div style="color:#555;font-size:.7rem">'+
+            (nf.cnpj_emitente?eh(nf.cnpj_emitente):'')+(data?' · '+data:'')+'</div>'+
+          /* chave truncada + botão copiar */
+          (chave?
+            '<div style="display:flex;align-items:center;gap:4px;margin-top:3px">'+
+              '<span style="color:#aaa;font-family:monospace;font-size:.65rem;overflow:hidden;text-overflow:ellipsis;max-width:100px" title="'+eh(chaveFmt)+'">'+chave.substring(0,16)+'…</span>'+
+              '<button data-chave="'+eh(chave)+'" onclick="copiarChaveNF(this.dataset.chave)" title="Copiar chave completa" '+
+                'style="border:none;background:#0f766e;color:#fff;border-radius:4px;padding:1px 6px;font-size:.7rem;cursor:pointer;white-space:nowrap;flex-shrink:0">'+
+                '📋 Copiar</button>'+
+              (sefazUrl?'<a href="'+sefazUrl+'" target="_blank" title="Consultar no SEFAZ" '+
+                'style="border:none;background:#1d4ed8;color:#fff;border-radius:4px;padding:1px 6px;font-size:.7rem;cursor:pointer;text-decoration:none;white-space:nowrap;flex-shrink:0">'+
+                '🔍 SEFAZ</a>':'')+'</div>'
+          :'')+
+        '</td>';
+      })()+
+    '</tr>';
+  }).join('');
+
+  /* atualiza contador botão salvar */
+  atualizarContSalvar();
+}
+
+/* ── Preview de um item só ── */
+function previewUm(codigo){
+  var it=_margemTodos.find(function(x){return x.codigo===codigo;});
+  if(!it) return;
+  var novoPv=pvParaMargem(it.valor_unitario||0,LIMITE_MARGEM);
+  if(!novoPv) return;
+  _previewMap[codigo]=Math.round(novoPv*100)/100;
+
+  /* atualiza só a célula sem re-renderizar tudo */
+  var cel=document.getElementById('mnovo-'+eq(codigo));
+  if(cel) cel.innerHTML='<span class="prev-cell">'+brl(_previewMap[codigo])+'</span>';
+  var row=document.getElementById('mrow-'+eq(codigo));
+  if(row) row.style.background='#f0e6ff';
+
+  atualizarContSalvar();
+  /* mostra botões se ao menos 1 preview ativo */
+  if(Object.keys(_previewMap).length>0){
+    document.getElementById('btn-salvar-todos').style.display='';
+    document.getElementById('btn-cancelar-prev').style.display='';
+  }
+}
+
+/* ── Preview de TODOS abaixo do limite ── */
+function ativarPreviewTodos(){
+  _modoPreview=true; _previewMap={};
+
+  _margemTodos.forEach(function(x){
+    var custo=x.valor_unitario||0, pv=x.preco_venda||0;
+    var m=calcMargem(custo,pv);
+    var precisaCorrigir=(m===null||m<LIMITE_MARGEM)&&custo>0;
+    if(precisaCorrigir){
+      var novoPv=pvParaMargem(custo,LIMITE_MARGEM);
+      if(novoPv) _previewMap[x.codigo]=Math.round(novoPv*100)/100;
+    }
+  });
+
+  /* re-renderiza com preview aplicado */
+  renderMargem(document.getElementById('bm').value.trim());
+
+  /* exibe banner e botões */
+  var ban=document.getElementById('banner-preview');
+  ban.style.display='flex';
+  document.getElementById('btn-salvar-todos').style.display='';
+  document.getElementById('btn-cancelar-prev').style.display='';
+  atualizarContSalvar();
+}
+
+/* ── Cancelar preview ── */
+function cancelarPreview(){
+  _modoPreview=false; _previewMap={};
+  document.getElementById('banner-preview').style.display='none';
+  document.getElementById('btn-salvar-todos').style.display='none';
+  document.getElementById('btn-cancelar-prev').style.display='none';
+  renderMargem(document.getElementById('bm').value.trim());
+}
+
+function atualizarContSalvar(){
+  var cnt=Object.keys(_previewMap).length;
+  document.getElementById('cnt-salvar').textContent=cnt;
+  var res=document.getElementById('prev-resumo');
+  if(res) res.textContent=cnt+' preços a atualizar';
+}
+
+/* ── Edição inline na tabela de margem (igual editCel da Edição Rápida) ── */
+function editCelMargem(td, codigo){
+  if(!td) return;
+  var orig=td.innerHTML;
+  /* extrai valor numérico atual */
+  var it=_margemTodos.find(function(x){return x.codigo===codigo;});
+  var val=it?(it.preco_venda||0):0;
+
+  var inp=document.createElement('input');
+  inp.className='inp-cel';
+  inp.type='number';
+  inp.step='0.01';
+  inp.min='0';
+  inp.value=val.toFixed(2);
+  inp.style.width='100%';
+  inp.style.minWidth='90px';
+
+  /* aponta sempre para a célula mpv (preço atual) */
+  var pvTd=document.getElementById('mpv-'+eq(codigo));
+  if(!pvTd) return;
+  pvTd.innerHTML=''; pvTd.appendChild(inp); inp.focus(); inp.select();
+
+  var feito=false;
+  async function salvar(){
+    if(feito) return; feito=true;
+    var novo=parseFloat(inp.value)||0;
+    try{
+      var r=await db.from('itens').update({preco_venda:novo}).eq('codigo',codigo);
+      if(r.error) throw new Error(r.error.message);
+
+      /* atualiza no array local */
+      if(it) it.preco_venda=novo;
+
+      /* atualiza célula preço */
+      pvTd.innerHTML=brl(novo);
+      pvTd.ondblclick=function(){ editCelMargem(pvTd,codigo); };
+
+      /* recalcula margem e lucro ao vivo */
+      var custo=it?(it.valor_unitario||0):0;
+      var m=calcMargem(custo,novo);
+      var lucro=novo-custo;
+      var novoPvSug=pvParaMargem(custo,LIMITE_MARGEM);
+
+      /* atualiza célula margem % */
+      var mrow=document.getElementById('mrow-'+eq(codigo));
+      if(mrow){
+        var tds=mrow.querySelectorAll('td');
+        /* td[6] = margem, td[7] = novo preço, td[8] = lucro */
+        if(tds[6]){
+          var cor=m===null?'#aaa':m<0?'#dc3545':m<20?'#856404':m<LIMITE_MARGEM?'#d4730a':'#28a745';
+          tds[6].style.color=cor;
+          tds[6].style.fontWeight='700';
+          tds[6].textContent=m!==null?m.toFixed(1)+'%':'—';
+        }
+        /* atualiza badge da linha */
+        if(tds[0]){
+          var bh;
+          if(m===null) bh='<span class="badge-m sz">⚪ sem preço</span>';
+          else if(m<0) bh='<span class="badge-m cr">🔴 PREJUÍZO</span>';
+          else if(m<20) bh='<span class="badge-m at">🟡 CRÍTICO '+m.toFixed(1)+'%</span>';
+          else if(m<LIMITE_MARGEM) bh='<span class="badge-m bx">🟠 BAIXO '+m.toFixed(1)+'%</span>';
+          else bh='<span class="badge-m ok">✅ '+m.toFixed(1)+'%</span>';
+          tds[0].innerHTML=bh;
+        }
+        /* atualiza row background */
+        if(m===null) mrow.style.background='';
+        else if(m<0) mrow.style.background='#fdecea';
+        else if(m<20) mrow.style.background='#fffbeb';
+        else if(m<LIMITE_MARGEM) mrow.style.background='#fff5eb';
+        else mrow.style.background='';
+      }
+
+      /* atualiza célula novo preço sugerido */
+      var novoCel=document.getElementById('mnovo-'+eq(codigo));
+      if(novoCel){
+        if(m!==null&&m>=LIMITE_MARGEM){
+          novoCel.innerHTML='<span style="color:#28a745;font-size:.8rem">✅ ok</span>';
+          novoCel.style.background='';
+          novoCel.ondblclick=null;
+        } else if(novoPvSug){
+          novoCel.innerHTML='<span style="color:#7c3aed;font-weight:700;cursor:pointer" title="Duplo clique para editar">'+brl(novoPvSug)+'</span>';
+          novoCel.style.background='#f0e6ff';
+          novoCel.ondblclick=function(){ editCelMargem(pvTd,codigo); };
+        }
+      }
+
+      /* atualiza célula lucro */
+      var lucroEl=document.getElementById('mlucro-'+eq(codigo));
+      if(lucroEl){
+        lucroEl.textContent=m!==null?brl(lucro):'—';
+        lucroEl.style.color=m===null?'#aaa':lucro<0?'#dc3545':'#28a745';
+      }
+
+      /* remove do previewMap se existia */
+      delete _previewMap[codigo];
+      atualizarContSalvar();
+
+      toast('✅ Preço atualizado!','ok');
+    }catch(e){
+      toast('❌ '+e.message,'er');
+      pvTd.innerHTML=brl(val);
+      pvTd.ondblclick=function(){ editCelMargem(pvTd,codigo); };
+    }
+  }
+  inp.addEventListener('blur',salvar);
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter') inp.blur();
+    if(e.key==='Escape'){ feito=true; pvTd.innerHTML=brl(val); pvTd.ondblclick=function(){ editCelMargem(pvTd,codigo); }; }
+  });
+}
+
+/* ── Salvar todos no banco ── */
+async function salvarTodosMargem(){
+  var codigos=Object.keys(_previewMap);
+  if(!codigos.length){toast('Nenhum item no preview!','er');return;}
+
+  if(!confirm('Atualizar preço de venda de '+codigos.length+' produto(s) para margem de '+LIMITE_MARGEM+'%?')) return;
+
+  var btnSalvar=document.getElementById('btn-salvar-todos');
+  btnSalvar.textContent='⏳ Salvando...'; btnSalvar.disabled=true;
+
+  var ok=0, erros=0;
+  for(var i=0;i<codigos.length;i++){
+    var cod=codigos[i];
+    var novoPv=_previewMap[cod];
+    var r=await db.from('itens').update({preco_venda:novoPv}).eq('codigo',cod);
+    if(r.error){erros++;}
+    else{
+      ok++;
+      /* atualiza no array local */
+      var it=_margemTodos.find(function(x){return x.codigo===cod;});
+      if(it) it.preco_venda=novoPv;
+      /* visual: célula preço atual */
+      var celPv=document.getElementById('mpv-'+eq(cod));
+      if(celPv) celPv.textContent=brl(novoPv);
+      /* célula novo preço: marca como aplicado */
+      var celNovo=document.getElementById('mnovo-'+eq(cod));
+      if(celNovo) celNovo.innerHTML='<span class="prev-cell aplicado">✅ aplicado</span>';
+    }
+  }
+
+  btnSalvar.textContent='💾 Salvar Todos ('+document.getElementById('cnt-salvar').textContent+')';
+  btnSalvar.disabled=false;
+
+  if(erros===0){
+    toast('✅ '+ok+' preços atualizados!','ok');
+  } else {
+    toast('⚠️ '+ok+' ok, '+erros+' erros','av');
+  }
+
+  /* limpa preview e recarrega */
+  _modoPreview=false; _previewMap={};
+  document.getElementById('banner-preview').style.display='none';
+  document.getElementById('btn-salvar-todos').style.display='none';
+  document.getElementById('btn-cancelar-prev').style.display='none';
+  await carregarMargem();
+  atualizarBadgeMargem();
+}
+
+function pesqMargem(){ renderMargem(document.getElementById('bm').value.trim()); }
+
+/* ── atualiza badge da aba ao carregar itens ── */
+async function atualizarBadgeMargem(){
+  var r=await db.from('itens').select('valor_unitario,preco_venda');
+  if(r.error) return;
+  var cnt=0;
+  (r.data||[]).forEach(function(x){
+    var m=calcMargem(x.valor_unitario||0,x.preco_venda||0);
+    if(m!==null&&m<LIMITE_MARGEM) cnt++;
+  });
+  var badge=document.getElementById('badge-margem');
+  if(badge){ badge.textContent=cnt; badge.style.display=cnt>0?'inline':'none'; }
+}
+
+/* ── Badge de margem ao vivo no formulário de cadastro ── */
+function atualizarBadgeFpv(){
+  var val=parseFloat(document.getElementById('fv').value)||0;
+  var pv =parseFloat(document.getElementById('fpv').value)||0;
+  var badge=document.getElementById('fpv-margem-badge');
+  var hint =document.getElementById('fpv-hint');
+  var fpvEl=document.getElementById('fpv');
+  if(!badge||!hint||!fpvEl) return;
+
+  if(val<=0){ /* sem custo, não valida */
+    badge.style.display='none'; hint.style.display='none';
+    fpvEl.style.border=''; fpvEl.style.background=''; return;
+  }
+
+  /* pvMin = custo * 1.40  — arredonda pra cima no centavo */
+  var pvMinExato = val * (1 + LIMITE_MARGEM / 100);
+  var pvMin = Math.ceil(pvMinExato * 100) / 100;
+
+  /* markup real entre pv e custo */
+  var m = pv > 0 ? (pv - val) / val * 100 : null;
+
+  /* exibe badge e hint */
+  badge.style.display = 'inline';
+
+  if(pv <= 0){
+    badge.style.background='#6c757d'; badge.style.color='#fff';
+    badge.textContent='— %';
+    hint.style.display='block'; hint.style.color='#856404';
+    hint.innerHTML='⚠️ Informe o preço de venda.<br>Mínimo para '+LIMITE_MARGEM+'% markup: <b>R$ '+pvMin.toFixed(2).replace('.',',')+'</b> (custo × '+(1+LIMITE_MARGEM/100).toFixed(2)+')';
+    fpvEl.style.border='2px solid #ffc107'; fpvEl.style.background='#fffbeb';
+    return;
+  }
+
+  fpvEl.style.border=''; fpvEl.style.background='';
+
+  if(m < 0){
+    badge.style.background='#dc3545'; badge.style.color='#fff';
+    badge.textContent='🔴 '+m.toFixed(1)+'%';
+    hint.style.display='block'; hint.style.color='#dc3545';
+    hint.innerHTML='❌ Prejuízo! Preço abaixo do custo.<br>Mínimo para '+LIMITE_MARGEM+'% markup: <b>R$ '+pvMin.toFixed(2).replace('.',',')+'</b>';
+    fpvEl.style.border='2px solid #dc3545'; fpvEl.style.background='#fff5f5';
+  } else if(m < LIMITE_MARGEM){
+    badge.style.background='#fd7e14'; badge.style.color='#fff';
+    badge.textContent='🟠 '+m.toFixed(1)+'%';
+    hint.style.display='block'; hint.style.color='#7d3000';
+    hint.innerHTML='⚠️ Markup '+m.toFixed(1)+'% — abaixo de '+LIMITE_MARGEM+'%.<br>Mínimo: <b>R$ '+pvMin.toFixed(2).replace('.',',')+'</b> (custo × '+(1+LIMITE_MARGEM/100).toFixed(2)+')';
+    fpvEl.style.border='2px solid #fd7e14'; fpvEl.style.background='#fff5eb';
+  } else {
+    badge.style.background='#28a745'; badge.style.color='#fff';
+    badge.textContent='✅ '+m.toFixed(1)+'%';
+    hint.style.display='none';
+    fpvEl.style.border='2px solid #28a745'; fpvEl.style.background='#f0fff4';
+  }
+}
+
+/* ── Copiar chave NF-e para área de transferência ── */
+function copiarChaveNF(chave){
+  if(!chave){toast('Chave não disponível','er');return;}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(chave).then(function(){
+      toast('✅ Chave copiada! ('+chave.substring(0,8)+'…)','ok');
+    }).catch(function(){
+      _copiarFallback(chave);
+    });
+  } else {
+    _copiarFallback(chave);
+  }
+}
+function _copiarFallback(chave){
+  var ta=document.createElement('textarea');
+  ta.value=chave; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{
+    document.execCommand('copy');
+    toast('✅ Chave copiada! ('+chave.substring(0,8)+'…)','ok');
+  }catch(e){
+    toast('❌ Não foi possível copiar automaticamente','er');
+  }
+  document.body.removeChild(ta);
+}
+
+/* ══════════════════════════════════════════
+   MODAL CONFIRMAÇÃO MARGEM BAIXA (mmcAbrir / mmcCancelar / mmcConfirmar)
+   Exibe lista de itens com margem < LIMITE_MARGEM com checkbox item a item.
+   Só libera "Confirmar" quando TODOS estão marcados.
+══════════════════════════════════════════ */
+var _mmcCallback  = null;   /* função a chamar após confirmação */
+var _mmcItens     = [];     /* itens que precisam de confirmação */
+
+function brlMmc(v){ return 'R$ '+(v||0).toFixed(2).replace('.',','); }
+
+function mmcAbrir(itens, subtitulo){
+  _mmcItens = itens;
+  document.getElementById('mmc-subtitulo').textContent = subtitulo||'Confirme item por item para prosseguir';
+
+  var lista = document.getElementById('mmc-lista');
+  lista.innerHTML = itens.map(function(it, i){
+    var pvMin = it.pvMin || 0;
+    var mStr  = it.margem!=null ? it.margem.toFixed(1)+'%' : 'sem preço';
+    var mCor  = it.margem==null||it.margem<0 ? '#dc3545' : '#e67e22';
+    var pvAtualStr = it.pvAtual>0 ? brlMmc(it.pvAtual) : '—';
+
+    return '<div id="mmc-row-'+i+'" style="border:2px solid #dee2e6;border-radius:8px;padding:12px 14px;margin-bottom:10px;transition:.2s" data-idx="'+i+'">'+
+      '<div style="display:flex;align-items:flex-start;gap:12px">'+
+        '<input type="checkbox" id="mmc-chk-'+i+'" onchange="mmcToggle('+i+')" '+
+          'style="width:20px;height:20px;margin-top:3px;cursor:pointer;accent-color:#28a745;flex-shrink:0">'+
+        '<div style="flex:1">'+
+          '<div style="font-weight:700;font-size:.92rem;color:#2c3e50;margin-bottom:6px">'+
+            (it.nome||'—')+'</div>'+
+          '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem">'+
+            '<span>💰 Custo: <b>'+brlMmc(it.custo)+'</b></span>'+
+            '<span>🏷️ Preço atual: <b>'+pvAtualStr+'</b></span>'+
+            '<span style="color:'+mCor+'">📉 Margem: <b>'+mStr+'</b></span>'+
+            '<span style="color:#1a7a4a">✅ Mínimo 40%: <b>'+brlMmc(pvMin)+'</b></span>'+
+          '</div>'+
+          '<div id="mmc-conf-'+i+'" style="display:none;margin-top:8px;font-size:.77rem;'+
+            'color:#28a745;background:#f0fff4;border-radius:5px;padding:4px 8px">'+
+            '✔ Confirmado — será cadastrado com margem abaixo de 40%'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  /* botão começa desabilitado */
+  document.getElementById('mmc-btn-ok').disabled = true;
+  document.getElementById('mmc-btn-ok').style.opacity = '.45';
+  document.getElementById('modal-margem-confirm').classList.add('ab');
+}
+
+function mmcToggle(idx){
+  var chk = document.getElementById('mmc-chk-'+idx);
+  var row = document.getElementById('mmc-row-'+idx);
+  var conf= document.getElementById('mmc-conf-'+idx);
+  if(chk.checked){
+    row.style.borderColor='#28a745';
+    row.style.background='#f8fff9';
+    conf.style.display='block';
+  }else{
+    row.style.borderColor='#dee2e6';
+    row.style.background='';
+    conf.style.display='none';
+  }
+  /* habilita o botão só quando TODOS marcados */
+  var todos = _mmcItens.every(function(_,i){
+    var c=document.getElementById('mmc-chk-'+i);
+    return c && c.checked;
+  });
+  var btn = document.getElementById('mmc-btn-ok');
+  btn.disabled = !todos;
+  btn.style.opacity = todos ? '1' : '.45';
+}
+
+function mmcCancelar(){
+  document.getElementById('modal-margem-confirm').classList.remove('ab');
+  _mmcCallback = null;
+  _mmcItens    = [];
+}
+
+function mmcConfirmar(){
+  document.getElementById('modal-margem-confirm').classList.remove('ab');
+  var cb = _mmcCallback;
+  _mmcCallback = null;
+  _mmcItens    = [];
+  if(cb) cb();
+}
+
+carregarCategorias().then(function(){ carregarTudo(); atualizarBadgeMargem(); });
+atualizarBarraTokens();
+</script>
+<script src="sidebar.js"></script>
+</body>
+</html>
