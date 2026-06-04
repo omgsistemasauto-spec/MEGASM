@@ -490,7 +490,7 @@ var db=window.supabase.createClient(SB_URL,SB_KEY);
 function eh(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function dh(s){if(!s)return '';var d=new Date(s);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
 function hoje(){return new Date().toISOString().split('T')[0];}
-var _tt;SS
+var _tt;
 function toast(m,t){var e=document.getElementById('toast');e.textContent=m;e.className='vis '+(t||'ok');clearTimeout(_tt);_tt=setTimeout(function(){e.className=''},4000);}
 function fechar(id){document.getElementById(id).classList.remove('ab');}
 
