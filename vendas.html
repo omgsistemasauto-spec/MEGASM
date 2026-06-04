@@ -357,7 +357,7 @@ tbody td{padding:8px 12px}
     <div class="painel-produtos">
       <div class="busca-bar">
         <span>🔍</span>
-        <input id="inp-busca" placeholder="Buscar por código, nome, marca ou aplicação..." oninput="filtrarProdutos()" autocomplete="off">
+        <input id="inp-busca" placeholder="Buscar por código, nome, marca ou aplicação..." oninput="filtrarProdutos()" autocomplete="off" name="search_produtos_x7k" readonly onfocus="this.removeAttribute('readonly')">
         <select id="fil-cat" onchange="filtrarProdutos()"
           style="padding:8px 12px;border:1px solid var(--borda);border-radius:8px;
           font-size:.86rem;outline:none;min-width:160px;cursor:pointer;background:#fff">
@@ -366,8 +366,8 @@ tbody td{padding:8px 12px}
         <select id="fil-estq" onchange="filtrarProdutos()"
           style="padding:8px 12px;border:1px solid var(--borda);border-radius:8px;
           font-size:.86rem;outline:none;cursor:pointer;background:#fff">
-          <option value="disp" selected>✅ Com estoque</option>
-          <option value="">Todos (com e sem)</option>
+          <option value="disp">✅ Com estoque</option>
+          <option value="" selected>Todos (com e sem)</option>
           <option value="esgo">❌ Sem estoque</option>
         </select>
       </div>
@@ -718,13 +718,26 @@ tbody td{padding:8px 12px}
     <div id="pag-simples-wrap">
       <div class="cmp">
         <label>Método de Pagamento *</label>
-        <select id="fin-metodo" onchange="recalcularTotal()">
+        <select id="fin-metodo" onchange="recalcularTotal();toggleVendedorPix()">
           <option value="">— Selecione —</option>
           <option>Dinheiro</option>
           <option>Cartão Crédito</option>
           <option>Cartão Débito</option>
           <option>PIX</option>
         </select>
+      </div>
+      <!-- VENDEDOR PIX — aparece só quando PIX é selecionado -->
+      <div class="cmp" id="div-vendedor-pix" style="display:none;background:#e0f2fe;border:1.5px solid #0284c7;border-radius:9px;padding:10px 12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <label style="color:#0c5460;font-weight:800;margin:0">📲 Vendedor (conta PIX)</label>
+          <button onclick="abrirModalNovoVendedor()" type="button"
+            style="background:#0284c7;color:#fff;border:none;border-radius:6px;width:26px;height:26px;font-size:1rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"
+            title="Cadastrar novo vendedor">＋</button>
+        </div>
+        <select id="fin-vendedor-id" style="width:100%;padding:9px 12px;border:1px solid #7dd3fc;border-radius:7px;font-size:.9rem;background:#fff">
+          <option value="">— Selecione o vendedor —</option>
+        </select>
+        <div id="fin-vendedor-pix-key" style="font-size:.75rem;color:#0c5460;margin-top:5px;font-weight:600"></div>
       </div>
       <!-- Troco -->
       <div class="cmp" id="div-troco" style="display:none">
@@ -830,7 +843,7 @@ tbody td{padding:8px 12px}
       <div class="cupom-info" id="cupom-info"></div>
       <table class="cupom-table">
         <thead><tr>
-          <th>Produto/Serviço</th><th>Marca</th><th>Aplicação</th><th>Qtd</th><th>Unit.</th><th>Total</th>
+          <th>Produto/Serviço</th><th style="text-align:center">Qtd</th><th style="text-align:right">Unit.</th><th style="text-align:right">Total</th>
         </tr></thead>
         <tbody id="cupom-itens"></tbody>
       </table>
@@ -1926,6 +1939,9 @@ function abrirModalFinalizar(){
   document.getElementById('fin-desconto').value='0';
   document.getElementById('fin-metodo').value='';
   document.getElementById('fin-obs').value='';
+  document.getElementById('div-vendedor-pix').style.display='none';
+  document.getElementById('fin-vendedor-id').value='';
+  document.getElementById('fin-vendedor-pix-key').textContent='';
   document.getElementById('fin-recebido').value='';
   document.getElementById('fin-troco').textContent='';
   document.getElementById('div-troco').style.display='none';
@@ -2021,6 +2037,59 @@ function setTipoDesc(tipo){
   document.getElementById('fin-desconto').max = tipo==='pct' ? String(MAX_DESC_PCT) : '';
   recalcularTotal();
 }
+
+/* ── VENDEDOR PIX ── */
+var _vendedoresList = [];
+function abrirModalNovoVendedor(){
+  document.getElementById('vend-nome').value='';
+  document.getElementById('vend-pix').value='';
+  document.getElementById('modal-vendedor').classList.add('ab');
+  setTimeout(function(){ document.getElementById('vend-nome').focus(); }, 80);
+}
+function fecharModalVendedor(){
+  document.getElementById('modal-vendedor').classList.remove('ab');
+}
+async function salvarVendedor(){
+  var nome = document.getElementById('vend-nome').value.trim();
+  var pix  = document.getElementById('vend-pix').value.trim();
+  if(!nome){ toast('Informe o nome do vendedor!','er'); return; }
+  var r = await db.from('vendedores').insert({nome, chave_pix: pix||null, ativo:true}).select('id,nome,chave_pix').single();
+  if(r.error){ toast('❌ '+r.error.message,'er'); return; }
+  toast('✅ Vendedor cadastrado!','ok');
+  fecharModalVendedor();
+  await carregarVendedores();
+  /* seleciona automaticamente o vendedor recém-criado */
+  document.getElementById('fin-vendedor-id').value = r.data.id;
+  var keyEl = document.getElementById('fin-vendedor-pix-key');
+  keyEl.textContent = r.data.chave_pix ? '🔑 Chave PIX: '+r.data.chave_pix : '';
+}
+async function carregarVendedores(){
+  var r = await db.from('vendedores').select('id,nome,chave_pix').order('nome');
+  if(r.error||!r.data) return;
+  _vendedoresList = r.data;
+  var sel = document.getElementById('fin-vendedor-id');
+  sel.innerHTML = '<option value="">— Selecione o vendedor —</option>';
+  r.data.forEach(function(v){
+    sel.innerHTML += '<option value="'+v.id+'">'+v.nome+(v.chave_pix?' — '+v.chave_pix:'')+'</option>';
+  });
+}
+function toggleVendedorPix(){
+  var metodo = document.getElementById('fin-metodo').value;
+  var div = document.getElementById('div-vendedor-pix');
+  div.style.display = metodo === 'PIX' ? 'block' : 'none';
+  if(metodo !== 'PIX'){
+    document.getElementById('fin-vendedor-id').value = '';
+    document.getElementById('fin-vendedor-pix-key').textContent = '';
+  }
+}
+document.addEventListener('change', function(e){
+  if(e.target.id === 'fin-vendedor-id'){
+    var id = parseInt(e.target.value);
+    var v = _vendedoresList.find(function(x){ return x.id === id; });
+    document.getElementById('fin-vendedor-pix-key').textContent =
+      v && v.chave_pix ? '🔑 Chave PIX: ' + v.chave_pix : '';
+  }
+});
 
 function recalcularTotal(){
   var bruto     = _carrinho.reduce(function(s,it){ return s+it.preco*(it.tipo==='produto'||it.tipo==='peca'?it.qtd:1); },0);
@@ -2471,7 +2540,8 @@ async function confirmarVenda(){
       cliente_nome:cliNome,
       cliente_id:cliId||null,
       responsavel:USERNAME,
-      observacoes:obs||null
+      observacoes:obs||null,
+      vendedor_id:(_pagMode==='simples'&&metodo==='PIX') ? (parseInt(document.getElementById('fin-vendedor-id').value)||null) : null
     }).select('id').single();
     if(rv.error) throw new Error(rv.error.message);
     var vendaId = rv.data.id;
@@ -2548,6 +2618,8 @@ async function confirmarVenda(){
     document.getElementById('card-troca-oleo').style.display = 'none';
     _carrinho=[];
     await carregarProdutos();
+carregarVendedores();
+document.getElementById('inp-busca').value='';
     renderCarrinho();
 
   }catch(e){
@@ -2687,11 +2759,15 @@ async function carregarItensCupom(vendaId){
   document.getElementById('cupom-itens').innerHTML = r.data.map(function(it){
     var total = it.preco_unitario * it.quantidade;
     if(it.tipo==='servico'){
-      return '<tr class="serv"><td colspan="3">🔧 Serviço: '+eh(it.nome_produto)+'</td>'+
-        '<td>'+it.quantidade+'</td><td>'+brl(it.preco_unitario)+'</td><td>'+brl(total)+'</td></tr>';
+      return '<tr class="serv"><td colspan="2">🔧 Serviço: '+eh(it.nome_produto)+'</td>'+
+        '<td style="text-align:right">'+brl(it.preco_unitario)+'</td><td style="text-align:right">'+brl(total)+'</td></tr>';
     }
-    return '<tr><td>'+eh(it.nome_produto)+'</td><td>—</td><td>—</td>'+
-      '<td>'+it.quantidade+'</td><td>'+brl(it.preco_unitario)+'</td><td>'+brl(total)+'</td></tr>';
+    return '<tr>'+
+      '<td>'+eh(it.nome_produto)+'</td>'+
+      '<td style="text-align:center;font-weight:700">'+it.quantidade+'</td>'+
+      '<td style="text-align:right">'+brl(it.preco_unitario)+'</td>'+
+      '<td style="text-align:right;font-weight:700">'+brl(total)+'</td>'+
+    '</tr>';
   }).join('');
 }
 
@@ -4632,43 +4708,124 @@ window.addEventListener('hashchange', function(){
 	  if(hash === '#os') abrirPainelOS();
 	});
 
-		/* ESTRATÉGIA PARA LEITOR DE CÓDIGO DE BARRAS (LCBS600A) */
-		/* Captura global de teclado: se o usuário começar a digitar (ou o leitor disparar), 
-		   o foco é jogado para a busca automaticamente, a menos que ele esteja em outro campo intencional. */
-		document.addEventListener('keydown', function(e) {
-		  const inpBusca = document.getElementById('inp-busca');
-		  if (!inpBusca) return;
+  /* ── LEITOR DE CÓDIGO DE BARRAS ──
+     Leitores enviam os chars em <50ms entre si + Enter no final.
+     Digitação humana normal é >100ms por char.
+     Estratégia: acumula chars com timestamp; se Enter vier
+     e a sequência toda foi rápida (scanner), busca direto
+     no cache _produtos pelo código/código_barras e joga no carrinho.
+     Se for digitação humana normal, redireciona pro inp-busca.
+  ── */
+  var _scanBuf = '', _scanLast = 0;
+  var SCAN_MAX_INTERVAL = 60; /* ms máximo entre chars do leitor */
 
-		  // Se já estiver focado na busca, não faz nada
-		  if (document.activeElement === inpBusca) return;
+  document.addEventListener('keydown', function(e){
+    var inpBusca = document.getElementById('inp-busca');
+    var modalAberto = document.querySelector('.bd.ab, #modal-foto.ab, #cupom-popup.ab, #cupom-oleo-popup.ab, #modal-aplicacoes.ab');
+    var activeTag = document.activeElement ? document.activeElement.tagName : '';
 
-		  // Se houver um modal aberto, respeitamos o foco do modal
-		  const modalAberto = document.querySelector('.bd.ab, #modal-foto.ab, #cupom-popup.ab, #cupom-oleo-popup.ab, #modal-aplicacoes.ab');
-		  if (modalAberto) return;
+    /* Se modal aberto, não interfere */
+    if(modalAberto) return;
 
-		  // Se o usuário estiver em outro campo de texto (ex: observação, nome de cliente no finalizar), não interfere
-		  const tagsIgnorar = ['INPUT', 'TEXTAREA', 'SELECT'];
-		  if (tagsIgnorar.includes(document.activeElement.tagName)) return;
+    var agora = Date.now();
+    var intervalo = agora - _scanLast;
+    _scanLast = agora;
 
-		  // Teclas de controle que não devem disparar o foco
-		  const teclasIgnorar = ['Alt', 'Control', 'Shift', 'Meta', 'CapsLock', 'Tab', 'Escape', 'F1', 'F2', 'F3', 'F4', 'F5', 'F12'];
-		  if (teclasIgnorar.includes(e.key)) return;
+    /* Enter: verifica se foi scanner */
+    if(e.key === 'Enter'){
+      var cod = _scanBuf.trim().replace(/\s+/g,'');
+      _scanBuf = '';
+      if(!cod) return;
 
-		  // Se chegou aqui, é um caractere alfanumérico ou o início de um código de barras
-		  // Jogamos o foco para o input e deixamos o caractere ser digitado lá
-		  inpBusca.focus();
-		});
+      /* Só processa como scanner se não estiver em campo de texto (exceto inp-busca) */
+      if(activeTag === 'INPUT' && document.activeElement !== inpBusca) return;
+      if(activeTag === 'TEXTAREA') return;
 
-		// Fallback: Manter o foco sempre que clicar no vazio da página
-		document.addEventListener('click', function(e) {
-		  const inpBusca = document.getElementById('inp-busca');
-		  const modalAberto = document.querySelector('.bd.ab, #modal-foto.ab, #cupom-popup.ab, #cupom-oleo-popup.ab, #modal-aplicacoes.ab');
-		  
-		  if (inpBusca && !modalAberto && e.target.tagName === 'BODY' || e.target.classList.contains('main') || e.target.classList.contains('painel-produtos')) {
-		    inpBusca.focus();
-		  }
-		});
+      /* Busca no cache pelo código ou código_barras */
+      var prod = _produtos.find(function(p){
+        var bc = (p.codigo_barras||'').trim();
+        return p.codigo.trim() === cod || (bc && bc === cod);
+      });
+
+      if(prod){
+        e.preventDefault();
+        if(inpBusca) inpBusca.value = '';
+        if(prod.estoque <= 0){
+          toast('⚠️ '+prod.nome+' — estoque esgotado!','av');
+          return;
+        }
+        /* verifica se já tem no carrinho */
+        var noCarr = _carrinho.find(function(c){ return c.codigo === prod.codigo && c.tipo === 'produto'; });
+        var dispMax = prod.estoque - (noCarr ? noCarr.qtd : 0);
+        if(dispMax <= 0){
+          toast('⚠️ Estoque máximo já no carrinho!','av');
+          return;
+        }
+        adicionarAoCarrinho(prod, 1);
+        /* feedback visual no input */
+        if(inpBusca){
+          inpBusca.value = '✅ ' + prod.nome;
+          setTimeout(function(){ inpBusca.value=''; filtrarProdutos(); }, 1200);
+        }
+      } else if(cod.length >= 4){
+        /* código não encontrado */
+        toast('❌ Código não encontrado: ' + cod,'er');
+        if(inpBusca){ inpBusca.value=''; filtrarProdutos(); }
+      }
+      return;
+    }
+
+    /* Acumula chars — só se for tecla de 1 char (não Shift, Ctrl etc) */
+    if(e.key.length === 1){
+      /* Se intervalo muito longo, reseta buffer (nova leitura ou nova digitação) */
+      if(intervalo > 300) _scanBuf = '';
+      _scanBuf += e.key;
+
+      /* Se não está num input, redireciona para busca */
+      if(activeTag !== 'INPUT' && activeTag !== 'TEXTAREA' && activeTag !== 'SELECT'){
+        if(inpBusca){ inpBusca.focus(); }
+      }
+    } else {
+      /* tecla especial (Backspace etc) reseta buffer */
+      if(!['Shift','Control','Alt','Meta','CapsLock','Tab'].includes(e.key)){
+        _scanBuf = '';
+      }
+    }
+  });
+
+  /* Fallback: foco na busca ao clicar no vazio */
+  document.addEventListener('click', function(e){
+    var inpBusca = document.getElementById('inp-busca');
+    var modalAberto = document.querySelector('.bd.ab, #modal-foto.ab, #cupom-popup.ab, #cupom-oleo-popup.ab, #modal-aplicacoes.ab');
+    if(inpBusca && !modalAberto &&
+      (e.target.tagName === 'BODY' || e.target.classList.contains('main') || e.target.classList.contains('painel-produtos'))){
+      inpBusca.focus();
+    }
+  });
 	</script>
 <script src="sidebar.js"></script>
+<!-- ══════════════════════════════════
+     MODAL: CADASTRO VENDEDOR
+══════════════════════════════════ -->
+<div class="bd" id="modal-vendedor">
+  <div class="modal" style="max-width:420px">
+    <button class="mf" onclick="fecharModalVendedor()">✕</button>
+    <div class="modal-handle"></div>
+    <h2>➕ Novo Vendedor</h2>
+    <div class="cmp">
+      <label>Nome *</label>
+      <input id="vend-nome" type="text" placeholder="Nome do vendedor">
+    </div>
+    <div class="cmp">
+      <label>Chave PIX</label>
+      <input id="vend-pix" type="text" placeholder="CPF, celular, e-mail ou chave aleatória">
+    </div>
+    <div class="mac" style="margin-top:14px">
+      <button class="btn bc" onclick="fecharModalVendedor()">Cancelar</button>
+      <button class="btn bv" onclick="salvarVendedor()">✅ Salvar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
