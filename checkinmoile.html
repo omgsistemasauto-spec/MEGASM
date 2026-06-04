@@ -497,9 +497,8 @@ function fechar(id){document.getElementById(id).classList.remove('ab');}
 function abrirWhatsApp(tel,msg){
   tel=String(tel).replace(/\D/g,'');
   if(tel.length===11)tel='55'+tel;
-  /* wa.me funciona em desktop (abre WhatsApp Web) e mobile (abre app) */
   var url='https://wa.me/'+tel+(msg?'?text='+encodeURIComponent(msg):'');
-  window.open(url,'_blank');
+  window.location.href=url;
 }
 
 /* ── ABAS ── */
