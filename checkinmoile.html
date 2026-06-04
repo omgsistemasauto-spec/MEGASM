@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Check-in — Mendezza</title>
+<title>Check-in — Mega Som</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -743,7 +743,7 @@ async function _salvar(zap){
     toast('✅ Check-in #'+ciId+' salvo! OS: '+num,'ok');
 
     if(zap&&cliTel){
-      var msg='🔧 *Mendezza Auto Peças*\n\n';
+      var msg='🔧 *Mega Som Auto Peças*\n\n';
       msg+='Olá, *'+_clienteSel.nome+'*! 😊\n\n';
       msg+='Seu veículo foi recebido com sucesso! ✅\n\n';
       msg+='🚗 *Veículo:* '+[marca,modelo,placa].filter(Boolean).join(' ')+'\n';
@@ -855,7 +855,7 @@ async function mudaStModal(st){
         var tel=(cli.telefone||'').replace(/\D/g,'');
         if(tel){
           if(tel.length===11)tel='55'+tel;
-          var msg='✅ *Mendezza Auto Peças*\n\n';
+          var msg='✅ *Mega Som Auto Peças*\n\n';
           msg+='Olá, *'+(cli.nome||'cliente')+'*! 😊\n\n';
           msg+='Seu veículo está *pronto para retirada*! 🎉\n\n';
           msg+='🚗 *Veículo:* '+[vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' ')+'\n';
@@ -884,7 +884,7 @@ async function zapCi(id){
   var r=await db.from('checkins').select('servicos,km_entrada,clientes(nome,telefone),veiculos(marca,modelo,placa),checkin_fotos(url)').eq('id',id).single();
   if(!r.data)return;
   var ci=r.data,cli=ci.clientes||{},vei=ci.veiculos||{},ft=ci.checkin_fotos||[];
-  var msg='🔧 *Mendezza Auto Peças*\n\n';
+  var msg='🔧 *Mega Som Auto Peças*\n\n';
   msg+='Olá, *'+(cli.nome||'cliente')+'*! 😊\n\n';
   msg+='🚗 *Veículo:* '+[vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' ')+'\n';
   msg+='🔧 *Serviços:* '+ci.servicos;
