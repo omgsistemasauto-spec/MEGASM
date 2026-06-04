@@ -179,9 +179,9 @@ tbody td{padding:8px 12px}
   <div class="tw">
     <table>
       <thead><tr>
-        <th>Código</th><th>Item</th><th>Marca</th><th>Aplicação</th><th>Estoque</th><th>Preço Venda</th>
+        <th>Código</th><th>Item</th><th>Marca</th><th>Cód. Barras</th><th>Aplicação</th><th>Estoque</th><th>Preço Venda</th>
       </tr></thead>
-      <tbody id="te"><tr class="vz"><td colspan="6">Carregando...</td></tr></tbody>
+      <tbody id="te"><tr class="vz"><td colspan="7">Carregando...</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -377,6 +377,7 @@ tbody td{padding:8px 12px}
     <h2 id="mf-titulo">➕ Novo Item</h2>
 
     <div class="cmp"><label>Código *</label><input id="fc" readonly></div>
+    <div class="cmp"><label>Código de Barras (EAN)</label><input id="fbc" type="text" placeholder="Ex: 7891234567890" style="font-family:monospace" oninput="this.value=this.value.trim()" onblur="this.value=this.value.trim()"></div>
     <div class="cmp">
       <label>Nome *</label>
       <input id="fn" placeholder="Nome do item" oninput="buscaSug()" onkeydown="tecladoSug(event)">
@@ -1318,27 +1319,28 @@ function pesqItens(){ carregarItens(document.getElementById('bi').value.trim());
 ══════════════════════════════════════════ */
 async function carregarEdicao(termo){
   var el=document.getElementById('te');
-  el.innerHTML='<tr class="vz"><td colspan="6">Carregando...</td></tr>';
+  el.innerHTML='<tr class="vz"><td colspan="7">Carregando...</td></tr>';
 
-  var q=db.from('itens').select('codigo,nome,marca,aplicacao,estoque,preco_venda,estoque_min,estoque_max');
+  var q=db.from('itens').select('codigo,nome,marca,codigo_barras,aplicacao,estoque,preco_venda,estoque_min,estoque_max');
   if(termo){
     q=q.or('codigo.ilike.%'+termo+'%,nome.ilike.%'+termo+'%,marca.ilike.%'+termo+'%,aplicacao.ilike.%'+termo+'%');
   }
   var r=await q.order('codigo');
-  if(r.error){ el.innerHTML='<tr class="vz"><td colspan="6">❌ '+eh(r.error.message)+'</td></tr>'; return; }
+  if(r.error){ el.innerHTML='<tr class="vz"><td colspan="7">❌ '+eh(r.error.message)+'</td></tr>'; return; }
 
   var rows=r.data||[];
-  if(!rows.length){ el.innerHTML='<tr class="vz"><td colspan="6">Nenhum item com estoque.</td></tr>'; return; }
+  if(!rows.length){ el.innerHTML='<tr class="vz"><td colspan="7">Nenhum item com estoque.</td></tr>'; return; }
 
   el.innerHTML=rows.map(function(x,i){
     var bg=i%2===0?'#fff':'#f9f9f9';
     return '<tr style="background:'+bg+'">'+
       '<td>'+eh(x.codigo)+'</td>'+
       '<td>'+eh(x.nome)+'</td>'+
-      '<td ondblclick="editCel(this,\''+eq(x.codigo)+'\',\'marca\')">'+eh(x.marca||'N/A')+'</td>'+
+      '<td ondblclick="editCel(this,\''+eq(x.codigo)+'\',' + "'marca'" + ')">'+eh(x.marca||'N/A')+'</td>'+
+      '<td ondblclick="editCel(this,\''+eq(x.codigo)+'\',' + "'codigo_barras'" + ')" style="font-family:monospace;font-size:.82rem">'+eh(x.codigo_barras||'—')+'</td>'+
       '<td ondblclick="abrirAplicacao(\''+eq(x.codigo)+'\')" style="cursor:pointer">'+eh(x.aplicacao||'N/A')+'</td>'+
-      '<td ondblclick="editCel(this,\''+eq(x.codigo)+'\',\'estoque\')">'+x.estoque+'</td>'+
-      '<td ondblclick="editCel(this,\''+eq(x.codigo)+'\',\'preco_venda\')">'+brl(x.preco_venda)+'</td>'+
+      '<td ondblclick="editCel(this,\''+eq(x.codigo)+'\',' + "'estoque'" + ')">'+x.estoque+'</td>'+
+      '<td ondblclick="editCel(this,\''+eq(x.codigo)+'\',' + "'preco_venda'" + ')">'+brl(x.preco_venda)+'</td>'+
     '</tr>';
   }).join('');
 }
@@ -1369,7 +1371,7 @@ function editCel(td, codigo, campo){
     try{
       if(campo==='estoque')     novo=parseInt(novo)||0;
       else if(campo==='preco_venda') novo=parseFloat(novo)||0;
-      else{ if(!novo||novo.toLowerCase()==='n/a') novo=null; }
+      else{ novo=(novo||'').trim(); if(!novo||novo.toLowerCase()==='n/a') novo=null; }
 
       var obj={}; obj[campo]=novo;
       var res=await db.from('itens').update(obj).eq('codigo',codigo);
@@ -1980,7 +1982,7 @@ async function abrirForm(codigo){
   _formAberto=true;
 
   /* limpa todos os campos */
-  ['fc','fn','fe','fv','fpv','fmarca','fmin','fmax'].forEach(function(id){
+  ['fc','fn','fe','fv','fpv','fmarca','fmin','fmax','fbc'].forEach(function(id){
     document.getElementById(id).value='';
   });
   document.getElementById('fqc').value='1';
@@ -2015,6 +2017,7 @@ async function abrirForm(codigo){
     document.getElementById('fcat').value  = d.categoria_id||'';
     document.getElementById('fmin').value  = d.estoque_min;
     document.getElementById('fmax').value  = d.estoque_max;
+    document.getElementById('fbc').value   = d.codigo_barras||'';
     mudaUnidade();
   }else{
     document.getElementById('mf-titulo').textContent='➕ Novo Item';
@@ -2148,6 +2151,7 @@ async function salvarItem(){
   var catId  = document.getElementById('fcat').value||null;
   var emin   = parseInt(document.getElementById('fmin').value)||0;
   var emax   = parseInt(document.getElementById('fmax').value)||1000;
+  var fbc    = document.getElementById('fbc').value.trim()||null;
 
   if(!codigo||!nome){ toast('Código e Nome são obrigatórios!','er'); return; }
 
@@ -2165,17 +2169,17 @@ async function salvarItem(){
         nome: nome||codigo, custo: val, pvAtual: pv,
         margem: _margem, pvMin: _pvMin
       }];
-      _mmcCallback = function(){ _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,marca,apl,catId,emin,emax); };
+      _mmcCallback = function(){ _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,marca,apl,catId,emin,emax,fbc); };
       mmcAbrir(_itens,'1 item com markup abaixo de '+LIMITE_MARGEM+'%');
       return;
     }
   }
 
   /* passou na validação — executa direto */
-  _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,marca,apl,catId,emin,emax);
+  _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,marca,apl,catId,emin,emax,fbc);
 }
 
-async function _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,marca,apl,catId,emin,emax){
+async function _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,marca,apl,catId,emin,emax,fbc){
   try{
     if(modo==='editar-est'){
       var ri=await db.from('itens').select('estoque,valor_unitario').eq('codigo',codigo).single();
@@ -2196,7 +2200,8 @@ async function _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,m
         estoque:est,estoque_inicial:est,valor_unitario:val,
         preco_venda:pv,marca:marca,aplicacao:apl,
         categoria_id:catId?parseInt(catId):null,
-        estoque_min:emin,estoque_max:emax
+        estoque_min:emin,estoque_max:emax,
+        codigo_barras:fbc||null
       });
       if(ins.error) throw new Error(ins.error.message);
       await db.from('historico_compras').insert({data:new Date().toISOString(),valor_total:est*val,chave_nfe:null});
@@ -2213,7 +2218,8 @@ async function _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,m
         estoque:est,valor_unitario:val,preco_venda:pv,
         marca:marca,aplicacao:apl,
         categoria_id:catId?parseInt(catId):null,
-        estoque_min:emin,estoque_max:emax
+        estoque_min:emin,estoque_max:emax,
+        codigo_barras:fbc||null
       }).eq('codigo',orig);
       if(upd2.error) throw new Error(upd2.error.message);
       toast('Item atualizado com sucesso!','ok');
