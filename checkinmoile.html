@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Check-in — Mega Som</title>
+<title>Check-in — Mendezza</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -490,16 +490,14 @@ var db=window.supabase.createClient(SB_URL,SB_KEY);
 function eh(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function dh(s){if(!s)return '';var d=new Date(s);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
 function hoje(){return new Date().toISOString().split('T')[0];}
-var _tt;SS
+var _tt;
 function toast(m,t){var e=document.getElementById('toast');e.textContent=m;e.className='vis '+(t||'ok');clearTimeout(_tt);_tt=setTimeout(function(){e.className=''},4000);}
 function fechar(id){document.getElementById(id).classList.remove('ab');}
 
 function abrirWhatsApp(tel,msg){
-  /* Garante formato 5538999... sem caracteres extras */
   tel=String(tel).replace(/\D/g,'');
   if(tel.length===11)tel='55'+tel;
-  /* api.whatsapp.com/send funciona em WebView, browser e app */
-  var url='https://api.whatsapp.com/send?phone='+tel+(msg?'&text='+encodeURIComponent(msg):'');
+  var url='https://wa.me/'+tel+(msg?'?text='+encodeURIComponent(msg):'');
   window.location.href=url;
 }
 
@@ -638,6 +636,28 @@ function tirarFoto(){
   c.toBlob(function(b){_fotos.push({blob:b,url:URL.createObjectURL(b)});atualizarGrid();toast('📸 Foto tirada!','ok');},'image/jpeg',.85);
 }
 
+/* ── COMPRIME FOTO ── */
+function comprimirFoto(blob,maxPx,qualidade){
+  return new Promise(function(resolve){
+    var img=new Image();
+    var objUrl=URL.createObjectURL(blob);
+    img.onload=function(){
+      URL.revokeObjectURL(objUrl);
+      var w=img.width,h=img.height;
+      if(w>maxPx||h>maxPx){
+        if(w>h){h=Math.round(h*maxPx/w);w=maxPx;}
+        else{w=Math.round(w*maxPx/h);h=maxPx;}
+      }
+      var c=document.createElement('canvas');
+      c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      c.toBlob(function(b){resolve(b);},'image/jpeg',qualidade||0.82);
+    };
+    img.onerror=function(){resolve(blob);};/* fallback sem compressão */
+    img.src=objUrl;
+  });
+}
+
 /* ── SALVAR ── */
 async function _salvar(zap){
   if(!_clienteSel){toast('Selecione um cliente!','er');return;}
@@ -707,23 +727,34 @@ async function _salvar(zap){
     /* Upload fotos */
     var urls=[];
     for(var i=0;i<_fotos.length;i++){
-      var nome_arq=ciId+'_'+Date.now()+'_'+i+'.jpg';
-      var up=await db.storage.from(BUCKET).upload(nome_arq,_fotos[i].blob,{contentType:'image/jpeg',upsert:true});
-      if(!up.error){
+      try{
+        /* Comprime para max 1200px antes do upload */
+        var blobFinal=await comprimirFoto(_fotos[i].blob,1200,0.82);
+        var nome_arq='ci_'+ciId+'_'+i+'_'+Date.now()+'.jpg';
+        var up=await db.storage.from(BUCKET).upload(nome_arq,blobFinal,{contentType:'image/jpeg',upsert:true});
+        if(up.error){console.error('Upload foto '+i+':',up.error);toast('⚠️ Foto '+(i+1)+' falhou: '+up.error.message,'er');continue;}
         var pu=db.storage.from(BUCKET).getPublicUrl(nome_arq);
         var url=pu.data.publicUrl;
         urls.push(url);
         await db.from('checkin_fotos').insert({checkin_id:ciId,url});
-      }
+      }catch(ef){console.error('Erro foto '+i,ef);toast('⚠️ Foto '+(i+1)+' erro: '+ef.message,'er');}
     }
 
     toast('✅ Check-in #'+ciId+' salvo! OS: '+num,'ok');
 
     if(zap&&cliTel){
-      var msg='🔧 *Mega Som Auto Peças*\n\n🚗 '+[marca,modelo,placa].filter(Boolean).join(' ')+'\n🔧 '+servicos;
-      if(km)msg+='\n🔢 KM: '+km;
-      if(urls.length)msg+='\n\n📸 Fotos:\n'+urls.map(function(u,ii){return 'Foto '+(ii+1)+': '+u;}).join('\n');
-      msg+='\n\n✅ Veículo recebido! Check-in #'+ciId;
+      var msg='🔧 *Mendezza Auto Peças*\n\n';
+      msg+='Olá, *'+_clienteSel.nome+'*! 😊\n\n';
+      msg+='Seu veículo foi recebido com sucesso! ✅\n\n';
+      msg+='🚗 *Veículo:* '+[marca,modelo,placa].filter(Boolean).join(' ')+'\n';
+      msg+='🔧 *Serviços:* '+servicos;
+      if(km)msg+='\n🔢 *KM:* '+km;
+      msg+='\n📋 *OS:* '+num;
+      if(urls.length){
+        msg+='\n\n📸 *Fotos do veículo ('+urls.length+'):*\n';
+        msg+=urls.map(function(u,ii){return '👉 Foto '+(ii+1)+': '+u;}).join('\n');
+      }
+      msg+='\n\nEntraremos em contato assim que o serviço estiver pronto. 🙏';
       var tel=cliTel.replace(/\D/g,'');
       if(tel.length===11)tel='55'+tel;
       setTimeout(function(){abrirWhatsApp(tel,msg);},500);
@@ -824,7 +855,7 @@ async function mudaStModal(st){
         var tel=(cli.telefone||'').replace(/\D/g,'');
         if(tel){
           if(tel.length===11)tel='55'+tel;
-          var msg='✅ *Mega Som Auto Peças*\n\n';
+          var msg='✅ *Mendezza Auto Peças*\n\n';
           msg+='Olá, *'+(cli.nome||'cliente')+'*! 😊\n\n';
           msg+='Seu veículo está *pronto para retirada*! 🎉\n\n';
           msg+='🚗 *Veículo:* '+[vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' ')+'\n';
@@ -853,9 +884,15 @@ async function zapCi(id){
   var r=await db.from('checkins').select('servicos,km_entrada,clientes(nome,telefone),veiculos(marca,modelo,placa),checkin_fotos(url)').eq('id',id).single();
   if(!r.data)return;
   var ci=r.data,cli=ci.clientes||{},vei=ci.veiculos||{},ft=ci.checkin_fotos||[];
-  var msg='🔧 *Mega Som Auto Peças*\n\n🚗 '+[vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' ')+'\n🔧 '+ci.servicos;
-  if(ci.km_entrada)msg+='\n🔢 KM: '+ci.km_entrada;
-  if(ft.length)msg+='\n\n📸 Fotos:\n'+ft.map(function(f,i){return 'Foto '+(i+1)+': '+f.url;}).join('\n');
+  var msg='🔧 *Mendezza Auto Peças*\n\n';
+  msg+='Olá, *'+(cli.nome||'cliente')+'*! 😊\n\n';
+  msg+='🚗 *Veículo:* '+[vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' ')+'\n';
+  msg+='🔧 *Serviços:* '+ci.servicos;
+  if(ci.km_entrada)msg+='\n🔢 *KM:* '+ci.km_entrada;
+  if(ft.length){
+    msg+='\n\n📸 *Fotos do veículo ('+ft.length+'):*\n';
+    msg+=ft.map(function(f,i){return '👉 Foto '+(i+1)+': '+f.url;}).join('\n');
+  }
   var tel=(cli.telefone||'').replace(/\D/g,'');
   if(tel.length===11)tel='55'+tel;
   abrirWhatsApp(tel,msg);
