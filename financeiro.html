@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Financeiro — Mendezza Auto Peças</title>
+<title>Financeiro — Mega Som Auto Peças</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
@@ -871,7 +871,7 @@ tbody td{padding:9px 12px}
       padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
       <div>
         <div style="font-weight:800;font-size:1rem">🤖 Analista Financeiro IA</div>
-        <div style="font-size:.72rem;opacity:.8">Powered by DeepSeek · Mendezza Auto Peças</div>
+        <div style="font-size:.72rem;opacity:.8">Powered by DeepSeek · Mega Som Auto Peças</div>
       </div>
       <button onclick="fechar('modal-chat')"
         style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;
@@ -895,7 +895,7 @@ tbody td{padding:9px 12px}
     <!-- Mensagens -->
     <div id="chat-msgs" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px">
       <div class="chat-msg-ia">
-        👋 Olá! Sou a IA da <b>Mendezza Auto Peças</b> — conheço tudo sobre o seu negócio em tempo real.<br><br>
+        👋 Olá! Sou a IA da <b>Mega Som Auto Peças</b> — conheço tudo sobre o seu negócio em tempo real.<br><br>
         Pode me perguntar qualquer coisa, por exemplo:<br><br>
         💰 <i>"Vale a pena continuar com a loja?"</i><br>
         🛢️ <i>"Quantos óleos vendi esse mês?"</i><br>
@@ -1501,10 +1501,11 @@ var _fcDados = null;
 async function abrirFecharCaixa(){
   /* busca totais do dia */
   var hoje2 = hoje();
-  var rv = await db.from('vendas').select('total,metodo_pagamento').gte('data',hoje2+'T00:00:00').lte('data',hoje2+'T23:59:59').gt('total',0);
+  var rv = await db.from('vendas').select('total,metodo_pagamento,vendedor_id,vendedores(nome)').gte('data',hoje2+'T00:00:00').lte('data',hoje2+'T23:59:59').gt('total',0);
   var vendas = rv.data||[];
 
   var totalVendas=0,din=0,cred=0,deb=0,pix=0;
+  var pixPorVendedor = {}; /* { vendedor_nome: valor } */
   vendas.forEach(function(v){
     var tot = Number(v.total||0);
     totalVendas += tot;
@@ -1513,6 +1514,11 @@ async function abrirFecharCaixa(){
     cred += pg.cred;
     deb  += pg.deb;
     pix  += pg.pix;
+    /* acumula PIX por vendedor */
+    if(pg.pix > 0){
+      var vNome = (v.vendedores && v.vendedores.nome) ? v.vendedores.nome : (v.vendedor_id ? 'Vendedor #'+v.vendedor_id : 'Sem vendedor');
+      pixPorVendedor[vNome] = (pixPorVendedor[vNome]||0) + pg.pix;
+    }
   });
 
   /* busca contas pagas HOJE — separando retiradas de caixa físico das demais */
@@ -1538,7 +1544,7 @@ async function abrirFecharCaixa(){
   /* saldo esperado em dinheiro: só desconta retiradas que saíram do caixa físico */
   var saldoEsperadoDinheiro = saldoInicial + din - totalRetCaixa;
 
-  _fcDados = {hoje2, saldoInicial, totalVendas, totalRet, totalRetCaixa, din, cred, deb, pix, saldoEsperadoDinheiro};
+  _fcDados = {hoje2, saldoInicial, totalVendas, totalRet, totalRetCaixa, din, cred, deb, pix, saldoEsperadoDinheiro, pixPorVendedor};
 
   /* abre etapa 1: contagem fisica */
   document.getElementById('fc-dinheiro-fisico').value = '0.00';
@@ -1617,7 +1623,23 @@ function avancarParaFechamento(){
     '<div style="font-size:.8rem;color:#888">'+
       'Total vendas (todos métodos): '+brl(_fcDados.totalVendas)+' &nbsp;·&nbsp; '+
       'Total despesas pagas: '+brl(_fcDados.totalRet)+
-    '</div>';
+    '</div>'+
+    /* bloco PIX por vendedor */
+    (Object.keys(_fcDados.pixPorVendedor).length > 0 ?
+      '<div style="margin-top:12px;background:#e0f2fe;border:1.5px solid #0284c7;border-radius:8px;padding:12px 14px">'+
+        '<div style="font-weight:800;color:#0c5460;margin-bottom:8px;font-size:.88rem">📲 PIX por Vendedor</div>'+
+        Object.entries(_fcDados.pixPorVendedor).map(function(entry){
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #bae6fd;font-size:.86rem">'+
+            '<span>👤 <b>'+eh(entry[0])+'</b></span>'+
+            '<span style="font-weight:800;color:#0284c7">'+brl(entry[1])+'</span>'+
+          '</div>';
+        }).join('')+
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding-top:7px;font-size:.9rem">'+
+          '<span style="font-weight:700;color:#0c5460">Total PIX</span>'+
+          '<span style="font-weight:800;color:#0284c7;font-size:1rem">'+brl(_fcDados.pix)+'</span>'+
+        '</div>'+
+      '</div>'
+    : '');
 
   /* alerta de diferenca */
   var alertEl = document.getElementById('fc-alerta-diferenca');
@@ -2580,7 +2602,7 @@ async function enviarChat(){
     var messages = [
       {
         role: 'system',
-        content: 'IA da Mendezza Auto Peças. Dados reais abaixo (formato comprimido nome|qtd|aplicacao). Regras: responda em pt-BR, seja BREVE (máx 200 palavras), só o essencial, use emojis, valores em R$, 1 recomendação prática no final. Para perguntas de estoque, leia atentamente a lista de itens com quantidades reais.'
+        content: 'IA da Mega Som Auto Peças. Dados reais abaixo (formato comprimido nome|qtd|aplicacao). Regras: responda em pt-BR, seja BREVE (máx 200 palavras), só o essencial, use emojis, valores em R$, 1 recomendação prática no final. Para perguntas de estoque, leia atentamente a lista de itens com quantidades reais.'
       },
       {
         role: 'user',
