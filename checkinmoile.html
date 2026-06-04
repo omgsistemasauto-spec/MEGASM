@@ -720,10 +720,18 @@ async function _salvar(zap){
     toast('✅ Check-in #'+ciId+' salvo! OS: '+num,'ok');
 
     if(zap&&cliTel){
-      var msg='🔧 *Mendezza Auto Peças*\n\n🚗 '+[marca,modelo,placa].filter(Boolean).join(' ')+'\n🔧 '+servicos;
-      if(km)msg+='\n🔢 KM: '+km;
-      if(urls.length)msg+='\n\n📸 Fotos:\n'+urls.map(function(u,ii){return 'Foto '+(ii+1)+': '+u;}).join('\n');
-      msg+='\n\n✅ Veículo recebido! Check-in #'+ciId;
+      var msg='🔧 *Mendezza Auto Peças*\n\n';
+      msg+='Olá, *'+_clienteSel.nome+'*! 😊\n\n';
+      msg+='Seu veículo foi recebido com sucesso! ✅\n\n';
+      msg+='🚗 *Veículo:* '+[marca,modelo,placa].filter(Boolean).join(' ')+'\n';
+      msg+='🔧 *Serviços:* '+servicos;
+      if(km)msg+='\n🔢 *KM:* '+km;
+      msg+='\n📋 *OS:* '+num;
+      if(urls.length){
+        msg+='\n\n📸 *Fotos do veículo ('+urls.length+'):*\n';
+        msg+=urls.map(function(u,ii){return '👉 Foto '+(ii+1)+': '+u;}).join('\n');
+      }
+      msg+='\n\nEntraremos em contato assim que o serviço estiver pronto. 🙏';
       var tel=cliTel.replace(/\D/g,'');
       if(tel.length===11)tel='55'+tel;
       setTimeout(function(){abrirWhatsApp(tel,msg);},500);
@@ -853,9 +861,15 @@ async function zapCi(id){
   var r=await db.from('checkins').select('servicos,km_entrada,clientes(nome,telefone),veiculos(marca,modelo,placa),checkin_fotos(url)').eq('id',id).single();
   if(!r.data)return;
   var ci=r.data,cli=ci.clientes||{},vei=ci.veiculos||{},ft=ci.checkin_fotos||[];
-  var msg='🔧 *Mendezza Auto Peças*\n\n🚗 '+[vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' ')+'\n🔧 '+ci.servicos;
-  if(ci.km_entrada)msg+='\n🔢 KM: '+ci.km_entrada;
-  if(ft.length)msg+='\n\n📸 Fotos:\n'+ft.map(function(f,i){return 'Foto '+(i+1)+': '+f.url;}).join('\n');
+  var msg='🔧 *Mendezza Auto Peças*\n\n';
+  msg+='Olá, *'+(cli.nome||'cliente')+'*! 😊\n\n';
+  msg+='🚗 *Veículo:* '+[vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' ')+'\n';
+  msg+='🔧 *Serviços:* '+ci.servicos;
+  if(ci.km_entrada)msg+='\n🔢 *KM:* '+ci.km_entrada;
+  if(ft.length){
+    msg+='\n\n📸 *Fotos do veículo ('+ft.length+'):*\n';
+    msg+=ft.map(function(f,i){return '👉 Foto '+(i+1)+': '+f.url;}).join('\n');
+  }
   var tel=(cli.telefone||'').replace(/\D/g,'');
   if(tel.length===11)tel='55'+tel;
   abrirWhatsApp(tel,msg);
