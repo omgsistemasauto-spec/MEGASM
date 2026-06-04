@@ -1,5 +1,5 @@
 /* ============================================================
-   SIDEBAR.JS — Mendezza Auto Peças
+   SIDEBAR.JS — MEGA SOM e Acessórios
    Inclua antes do </body> de todas as páginas:
    <script src="sidebar.js"></script>
    ============================================================ */
@@ -49,7 +49,7 @@
       '<a href="vendas.html" class="sb-logo">' +
         '<div class="sb-logo-icon">M</div>' +
         '<div class="sb-logo-txt">' +
-          '<span>Mendezza</span>' +
+          '<span>MEGA SOM</span>' +
           '<span>Auto Peças</span>' +
         '</div>' +
       '</a>' +
