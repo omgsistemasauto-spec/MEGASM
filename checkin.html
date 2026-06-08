@@ -478,6 +478,13 @@ tbody td{padding:8px 12px;vertical-align:middle}
       <div class="cmp"><label>CPF</label><input id="cli-f-cpf" placeholder="000.000.000-00"></div>
     </div>
     <div class="cmp"><label>E-mail</label><input type="email" id="cli-f-email" placeholder="email@..."></div>
+    <hr style="border:none;border-top:1px dashed #ddd;margin:10px 0">
+    <div style="font-size:.78rem;font-weight:700;color:var(--azul);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">🚗 Veículo</div>
+    <div class="g2">
+      <div class="cmp"><label>Marca *</label><input id="cli-f-marca" placeholder="Ex: Honda, VW, Fiat..."></div>
+      <div class="cmp"><label>Modelo *</label><input id="cli-f-modelo" placeholder="Ex: Civic, Gol, Uno..."></div>
+    </div>
+    <div class="cmp" style="max-width:180px"><label>Placa</label><input id="cli-f-placa" placeholder="ABC-1234" style="text-transform:uppercase"></div>
     <input type="hidden" id="cli-f-id">
     <div class="mac">
       <button class="btn bc" onclick="fechar('modal-cli')">Cancelar</button>
@@ -492,7 +499,7 @@ tbody td{padding:8px 12px;vertical-align:middle}
 var SUPA_URL = 'https://bezfgfoqgmrczehfflfw.supabase.co';
 var SUPA_KEY = 'sb_publishable_Y1XJuBfpheJb7QM6nChNKw_sel05c_p';
 var BUCKET='checkin-fotos';
-var db=window.supabase.createClient(SB_URL,SB_KEY);
+var db=window.supabase.createClient(SUPA_URL,SUPA_KEY);
 
 function eh(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function dh(s){if(!s)return '';var d=new Date(s);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
@@ -837,7 +844,7 @@ async function carregarClientes(){
 async function abrirModalCliente(id){
   document.getElementById('modal-cli-titulo').textContent=id?'✏️ Editar Cliente':'➕ Novo Cliente';
   document.getElementById('cli-f-id').value=id||'';
-  ['cli-f-nome','cli-f-tel','cli-f-cpf','cli-f-email'].forEach(function(i){document.getElementById(i).value='';});
+  ['cli-f-nome','cli-f-tel','cli-f-cpf','cli-f-email','cli-f-marca','cli-f-modelo','cli-f-placa'].forEach(function(i){document.getElementById(i).value='';});
   if(id){
     var r=await db.from('clientes').select('*').eq('id',id).single();
     if(r.data){
@@ -845,6 +852,13 @@ async function abrirModalCliente(id){
       document.getElementById('cli-f-tel').value=r.data.telefone||'';
       document.getElementById('cli-f-cpf').value=r.data.cpf||'';
       document.getElementById('cli-f-email').value=r.data.email||'';
+    }
+    /* Carrega veículo principal */
+    var rv=await db.from('veiculos').select('marca,modelo,placa').eq('cliente_id',id).limit(1).maybeSingle();
+    if(rv.data){
+      document.getElementById('cli-f-marca').value=rv.data.marca||'';
+      document.getElementById('cli-f-modelo').value=rv.data.modelo||'';
+      document.getElementById('cli-f-placa').value=rv.data.placa||'';
     }
   }
   document.getElementById('modal-cli').classList.add('ab');
@@ -857,10 +871,32 @@ async function salvarCliente(){
   var tel=document.getElementById('cli-f-tel').value.trim();
   var cpf=document.getElementById('cli-f-cpf').value.trim()||null;
   var email=document.getElementById('cli-f-email').value.trim()||null;
+  var marca=document.getElementById('cli-f-marca').value.trim()||null;
+  var modelo=document.getElementById('cli-f-modelo').value.trim()||null;
+  var placa=document.getElementById('cli-f-placa').value.trim().toUpperCase()||null;
   if(!nome){toast('Nome obrigatório!','er');return;}
-  var dados={nome,telefone:tel||null,cpf,email};
-  var r=id?await db.from('clientes').update(dados).eq('id',id):await db.from('clientes').insert(dados).select('id,nome,telefone').single();
+
+  /* 1. Salva cliente */
+  var dadosCli={nome,telefone:tel||null,cpf,email};
+  var r=id
+    ? await db.from('clientes').update(dadosCli).eq('id',id).select('id,nome,telefone').single()
+    : await db.from('clientes').insert(dadosCli).select('id,nome,telefone').single();
   if(r.error){toast('❌ '+r.error.message,'er');return;}
+  var cliId=r.data.id;
+
+  /* 2. Salva veículo em veiculos (se informou marca ou modelo) */
+  if(marca||modelo||placa){
+    /* Verifica se já existe veículo principal desse cliente */
+    var rv=await db.from('veiculos').select('id').eq('cliente_id',cliId).limit(1).maybeSingle();
+    if(rv.data){
+      /* Atualiza existente */
+      await db.from('veiculos').update({marca,modelo,placa}).eq('id',rv.data.id);
+    } else {
+      /* Insere novo */
+      await db.from('veiculos').insert({cliente_id:cliId,marca,modelo,placa});
+    }
+  }
+
   toast('✅ Cliente salvo!','ok');
   fechar('modal-cli');
   if(!id&&r.data)selCli(r.data.id,r.data.nome,r.data.telefone||'');
