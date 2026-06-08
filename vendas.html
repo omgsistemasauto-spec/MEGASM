@@ -893,7 +893,7 @@ tbody td{padding:8px 12px}
     <div class="cupom-header">
       <h2>🎉 Venda Realizada!</h2>
       <p>Mega Som e Acessórios — Rua Roque Ferreira Pimenta, 418A</p>
-      <p>38 2100-4246 | 30 DIASacessorios@gmail.com | Garantia 30 DIAS</p>
+      <p>38 2100-4246 | megasomacessorios@gmail.com | Garantia 30 DIAS</p>
     </div>
     <div class="cupom-body">
       <div class="cupom-info" id="cupom-info"></div>
@@ -4041,7 +4041,7 @@ async function verImprimirOS(osId){
     '<div style="text-align:center;border-bottom:3px solid #2c3e50;padding-bottom:14px;margin-bottom:16px">'+
       '<div style="font-size:1.4rem;font-weight:800;color:#2c3e50;letter-spacing:1px">Mega Som e Acessórios</div>'+
       '<div style="font-size:.8rem;color:#666">Rua Roque Ferreira Pimenta, 418A &nbsp;|&nbsp; (38) 2100-4246</div>'+
-      '<div style="font-size:.8rem;color:#666">30 DIASacessorios@gmail.com &nbsp;|&nbsp; Garantia 30 DIAS</div>'+
+      '<div style="font-size:.8rem;color:#666">megasomacessorios@gmail.com &nbsp;|&nbsp; Garantia 30 DIAS</div>'+
     '</div>'+
     /* número + status */
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'+
@@ -4930,6 +4930,7 @@ async function confirmarPrecoProd(){
 }
 
 carregarProdutos();
+carregarVendedores();
 document.getElementById('inp-busca').value = '';
 /* Verifica se veio com OS pendente do check-in */
 (async function(){
@@ -5089,11 +5090,11 @@ window.addEventListener('hashchange', function(){
     <h2>➕ Novo Vendedor</h2>
     <div class="cmp">
       <label>Nome *</label>
-      <input id="vend-nome" type="text" placeholder="Nome do vendedor">
+      <input id="vend-nome" type="text" placeholder="Nome do vendedor" onkeydown="if(event.key==='Enter'){document.getElementById('vend-pix').focus()}">
     </div>
     <div class="cmp">
       <label>Chave PIX</label>
-      <input id="vend-pix" type="text" placeholder="CPF, celular, e-mail ou chave aleatória">
+      <input id="vend-pix" type="text" placeholder="CPF, celular, e-mail ou chave aleatória" onkeydown="if(event.key==='Enter'){salvarVendedor()}">
     </div>
     <div class="mac" style="margin-top:14px">
       <button class="btn bc" onclick="fecharModalVendedor()">Cancelar</button>
