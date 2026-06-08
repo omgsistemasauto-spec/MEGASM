@@ -781,6 +781,9 @@ tbody td{padding:8px 12px}
           <button onclick="abrirModalNovoVendedor()" type="button"
             style="background:#0284c7;color:#fff;border:none;border-radius:6px;width:26px;height:26px;font-size:1rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"
             title="Cadastrar novo vendedor">＋</button>
+          <button onclick="abrirGerenciarVendedores()" type="button"
+            style="background:#64748b;color:#fff;border:none;border-radius:6px;padding:0 10px;height:26px;font-size:.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;flex-shrink:0"
+            title="Gerenciar vendedores">⚙️ Gerenciar</button>
         </div>
         <select id="fin-vendedor-id" style="width:100%;padding:9px 12px;border:1px solid #7dd3fc;border-radius:7px;font-size:.9rem;background:#fff">
           <option value="">— Selecione o vendedor —</option>
@@ -2138,8 +2141,49 @@ async function salvarVendedor(){
   var keyEl = document.getElementById('fin-vendedor-pix-key');
   keyEl.textContent = r.data.chave_pix ? '🔑 Chave PIX: '+r.data.chave_pix : '';
 }
+
+async function abrirGerenciarVendedores(){
+  document.getElementById('modal-gerenciar-vend').classList.add('ab');
+  await renderListaGerenciarVend();
+}
+async function renderListaGerenciarVend(){
+  var r = await db.from('vendedores').select('id,nome,chave_pix,ativo').order('nome');
+  var lista = document.getElementById('lista-gerenciar-vend');
+  if(r.error||!r.data||!r.data.length){
+    lista.innerHTML='<div style="text-align:center;color:#bbb;padding:24px">Nenhum vendedor cadastrado.</div>';
+    return;
+  }
+  lista.innerHTML = r.data.map(function(v){
+    var ativo = v.ativo !== false;
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #f0f0f0">'
+      +'<div style="flex:1">'
+      +'<div style="font-weight:700;font-size:.9rem;color:'+(ativo?'#2c3e50':'#aaa')+'">'+v.nome+(ativo?'':' <span style="font-size:.72rem;background:#f1f1f1;color:#999;border-radius:4px;padding:1px 6px">inativo</span>')+'</div>'
+      +(v.chave_pix?'<div style="font-size:.75rem;color:#0c5460;margin-top:2px">🔑 '+v.chave_pix+'</div>':'')
+      +'</div>'
+      +(ativo
+        ? '<button onclick="inativarVendedor('+v.id+')" class="btn" style="background:#e74c3c;color:#fff;padding:5px 12px;font-size:.78rem">Inativar</button>'
+        : '<button onclick="reativarVendedor('+v.id+')" class="btn" style="background:#28a745;color:#fff;padding:5px 12px;font-size:.78rem">Reativar</button>'
+      )
+      +'</div>';
+  }).join('');
+}
+async function inativarVendedor(id){
+  if(!confirm('Inativar este vendedor? Ele será removido do dropdown mas o histórico de vendas será preservado.')) return;
+  var r = await db.from('vendedores').update({ativo:false}).eq('id',id);
+  if(r.error){ toast('❌ '+r.error.message,'er'); return; }
+  toast('✅ Vendedor inativado!','ok');
+  await renderListaGerenciarVend();
+  await carregarVendedores();
+}
+async function reativarVendedor(id){
+  var r = await db.from('vendedores').update({ativo:true}).eq('id',id);
+  if(r.error){ toast('❌ '+r.error.message,'er'); return; }
+  toast('✅ Vendedor reativado!','ok');
+  await renderListaGerenciarVend();
+  await carregarVendedores();
+}
 async function carregarVendedores(){
-  var r = await db.from('vendedores').select('id,nome,chave_pix').order('nome');
+  var r = await db.from('vendedores').select('id,nome,chave_pix,ativo').eq('ativo',true).order('nome');
   if(r.error||!r.data) return;
   _vendedoresList = r.data;
   var sel = document.getElementById('fin-vendedor-id');
