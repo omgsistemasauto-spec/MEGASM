@@ -2887,8 +2887,18 @@ async function salvarNovoCliente(){
 
   if(!nome){ toast('Nome obrigatório!','er'); return; }
 
-  var r = await db.from('clientes').insert({nome,cpf,telefone:tel,email,endereco:end||''}).select('id,nome,telefone').single();
-  if(r.error){ toast('❌ Erro: '+(r.error.code==='23505'?'CPF já cadastrado!':r.error.message),'er'); return; }
+  var payload = { nome: nome, cpf: cpf, telefone: tel, email: email };
+  console.log('[CadCli] inserindo:', payload);
+
+  var r = await db.from('clientes').insert(payload).select('id,nome,telefone').single();
+  if(r.error){
+    console.error('[CadCli] erro:', r.error);
+    var msg = r.error.code==='23505' ? 'CPF já cadastrado!'
+            : r.error.code==='23502' ? 'Campo obrigatório faltando: '+r.error.details
+            : (r.error.message||JSON.stringify(r.error));
+    toast('❌ '+msg,'er');
+    return;
+  }
 
   toast('✅ Cliente cadastrado!','ok');
   document.getElementById('modal-cad-cli').classList.remove('ab');
