@@ -457,6 +457,38 @@ tbody td{padding:9px 12px}
     </div>
   </div>
 
+  <!-- RETIRADAS DO DONO -->
+  <div class="card" style="margin-bottom:20px;border-left:4px solid #7c3aed">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:.95rem;font-weight:700;color:#5b21b6">👑 Retiradas do Dono</div>
+      <select id="rd-sel-ano" class="btn bc btn-sm" onchange="carregarRetiradaDono()"></select>
+    </div>
+
+    <!-- Indicador mês atual -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px" id="rd-indicadores">
+      <div style="background:#fdf4ff;border:1px solid #e9d5ff;border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:.72rem;font-weight:700;color:#7c3aed;margin-bottom:4px">💰 RETIRADO NO MÊS</div>
+        <div id="rd-mes-valor" style="font-size:1.6rem;font-weight:900;color:#5b21b6">R$ 0,00</div>
+        <div id="rd-mes-nome" style="font-size:.72rem;color:#94a3b8;margin-top:2px"></div>
+      </div>
+      <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:.72rem;font-weight:700;color:#7c3aed;margin-bottom:4px">📋 LANÇAMENTOS NO MÊS</div>
+        <div id="rd-mes-qtd" style="font-size:1.6rem;font-weight:900;color:#5b21b6">0</div>
+        <div style="font-size:.72rem;color:#94a3b8;margin-top:2px">retiradas</div>
+      </div>
+      <div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:.72rem;font-weight:700;color:#7c3aed;margin-bottom:4px">📅 TOTAL ANO</div>
+        <div id="rd-ano-valor" style="font-size:1.6rem;font-weight:900;color:#5b21b6">R$ 0,00</div>
+        <div id="rd-ano-label" style="font-size:.72rem;color:#94a3b8;margin-top:2px"></div>
+      </div>
+    </div>
+
+    <!-- Gráfico mensal -->
+    <div style="height:200px">
+      <canvas id="chartRetiradaDono"></canvas>
+    </div>
+  </div>
+
   <!-- VENDAS + DESPESAS -->
   <div class="grid2">
     <!-- Vendas do mês -->
@@ -540,6 +572,29 @@ tbody td{padding:9px 12px}
       </div>
     </div>
 
+  </div>
+
+  <!-- PIX POR VENDEDOR POR MÊS -->
+  <div class="card" style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:.95rem;font-weight:700;color:#0369a1">📱 PIX por Vendedor — por Mês</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="pix-sel-ano" class="btn bc btn-sm" onchange="carregarPixVendedor()"></select>
+        <select id="pix-sel-mes" class="btn bc btn-sm" onchange="carregarPixVendedor()">
+          <option value="">Todos os meses</option>
+          <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+          <option value="03">Março</option><option value="04">Abril</option>
+          <option value="05">Maio</option><option value="06">Junho</option>
+          <option value="07">Julho</option><option value="08">Agosto</option>
+          <option value="09">Setembro</option><option value="10">Outubro</option>
+          <option value="11">Novembro</option><option value="12">Dezembro</option>
+        </select>
+        <button class="btn ba btn-sm" onclick="carregarPixVendedor()">🔄 Atualizar</button>
+      </div>
+    </div>
+    <div id="pix-vendedor-body">
+      <div style="text-align:center;padding:20px;color:#bbb">Carregando...</div>
+    </div>
   </div>
 
   <!-- HISTÓRICO FECHAMENTOS -->
@@ -638,6 +693,20 @@ tbody td{padding:9px 12px}
     <div class="cmp" style="margin-top:15px">
       <label>Observações</label>
       <input id="ret-obs" placeholder="Opcional...">
+    </div>
+
+    <!-- OPÇÃO: Retirada do Dono -->
+    <div style="background:#fdf2ff;border:1px solid #e9b8ff;border-radius:8px;
+      padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px">
+      <input type="checkbox" id="ret-retirada-dono" style="width:20px;height:20px;cursor:pointer;accent-color:#7c3aed;flex-shrink:0">
+      <div>
+        <label for="ret-retirada-dono" style="font-weight:700;cursor:pointer;font-size:.88rem;color:#5b21b6">
+          👑 Retirada do Dono (Pró-labore / Retirada pessoal)
+        </label>
+        <div style="font-size:.75rem;color:#7c3aed;margin-top:2px">
+          Marque quando o dono retira dinheiro para uso pessoal — aparece no gráfico de retiradas do dono.
+        </div>
+      </div>
     </div>
 
     <!-- OPÇÃO: Retirada em dinheiro do caixa físico -->
@@ -1390,6 +1459,7 @@ function abrirFormRetirada(){
   document.getElementById('ret-venc').value = hoje();
   document.getElementById('ret-obs').value = '';
   document.getElementById('ret-retirada-caixa').checked = false;
+  document.getElementById('ret-retirada-dono').checked = false;
   document.getElementById('ret-qtd-parcelas').value = '2';
   document.getElementById('ret-valor-total-est').value = '';
   document.getElementById('lista-parcelas').innerHTML = '<div style="text-align:center;color:#aaa;font-size:.8rem;padding:20px">Clique em "Gerar Parcelas" para editar individualmente</div>';
@@ -1449,11 +1519,13 @@ async function salvarDespesa(){
       if(!venc){ toast('Informe o vencimento!','er'); return; }
       
       var retiradaCaixa = document.getElementById('ret-retirada-caixa').checked;
+      var retiradaDono  = document.getElementById('ret-retirada-dono').checked;
 
       batch.push({
         descricao: desc, valor, data_vencimento: venc,
         tipo: 'Único', num_parcelas: 1, parcela_atual: 1,
-        pago: false, status: 'PENDENTE', retirada_caixa: retiradaCaixa
+        pago: false, status: 'PENDENTE', retirada_caixa: retiradaCaixa,
+        retirada_dono: retiradaDono
       });
     } else {
       var inputsValor = document.querySelectorAll('.parc-valor');
@@ -1461,6 +1533,9 @@ async function salvarDespesa(){
       
       if(inputsValor.length === 0){ toast('Gere as parcelas primeiro!','er'); return; }
       
+      var retiradaCaixaP = document.getElementById('ret-retirada-caixa').checked;
+      var retiradaDonoP  = document.getElementById('ret-retirada-dono').checked;
+
       for(let i=0; i<inputsValor.length; i++){
         var v = parseFloat(inputsValor[i].value) || 0;
         var d = inputsVenc[i].value;
@@ -1475,7 +1550,8 @@ async function salvarDespesa(){
           parcela_atual: i+1,
           pago: false,
           status: 'PENDENTE',
-          retirada_caixa: retiradaCaixa
+          retirada_caixa: retiradaCaixaP,
+          retirada_dono: retiradaDonoP
         });
       }
     }
@@ -1488,6 +1564,7 @@ async function salvarDespesa(){
     carregarContas();
     atualizarCaixa();
     carregarGraficoAnual();
+    carregarRetiradaDono();
   } catch(e) {
     toast('❌ Erro: ' + e.message, 'er');
   }
@@ -2663,9 +2740,259 @@ function enviarRapido(tipo){
 }
 
 /* ══════════════════════════════════════════
+   PIX POR VENDEDOR POR MÊS
+══════════════════════════════════════════ */
+async function carregarPixVendedor(){
+  var selAno = document.getElementById('pix-sel-ano');
+  var selMes = document.getElementById('pix-sel-mes');
+  var anoVal = selAno.value || new Date().getFullYear();
+  var mesVal = selMes.value; /* '' = todos os meses */
+
+  var inicio, fim;
+  if(mesVal){
+    inicio = anoVal+'-'+mesVal+'-01';
+    var ultimo = new Date(parseInt(anoVal), parseInt(mesVal), 0).getDate();
+    fim = anoVal+'-'+mesVal+'-'+String(ultimo).padStart(2,'0')+'T23:59:59';
+  } else {
+    inicio = anoVal+'-01-01';
+    fim    = anoVal+'-12-31T23:59:59';
+  }
+
+  var body = document.getElementById('pix-vendedor-body');
+  body.innerHTML = '<div style="text-align:center;padding:20px;color:#bbb">Carregando...</div>';
+
+  var rv = await db.from('vendas')
+    .select('total,metodo_pagamento,data,vendedor_id,vendedores(nome)')
+    .gte('data', inicio+'T00:00:00'.substring(0, inicio.length > 10 ? 0 : 10))
+    .lte('data', fim)
+    .gt('total', 0);
+
+  var vendas = rv.data || [];
+
+  /* Agrupa: { vendedor → { mes → pixTotal } } */
+  var dados = {}; /* { vendedor: { 'YYYY-MM': valor } } */
+  var mesesSet = new Set();
+
+  vendas.forEach(function(v){
+    var pg = parsePagamento(v);
+    if(pg.pix <= 0) return;
+
+    var nomeVend = (v.vendedores && v.vendedores.nome) ? v.vendedores.nome
+      : (v.vendedor_id ? 'Vendedor #'+v.vendedor_id : 'Sem Vendedor');
+    var mesChave = v.data ? v.data.substring(0,7) : '?'; /* YYYY-MM */
+
+    if(!dados[nomeVend]) dados[nomeVend] = {};
+    dados[nomeVend][mesChave] = (dados[nomeVend][mesChave]||0) + pg.pix;
+    mesesSet.add(mesChave);
+  });
+
+  var vendedores = Object.keys(dados).sort();
+  var meses      = Array.from(mesesSet).sort();
+
+  var nomeMeses = {
+    '01':'Jan','02':'Fev','03':'Mar','04':'Abr','05':'Mai','06':'Jun',
+    '07':'Jul','08':'Ago','09':'Set','10':'Out','11':'Nov','12':'Dez'
+  };
+
+  if(!vendedores.length){
+    body.innerHTML = '<div style="text-align:center;padding:24px;color:#aaa">Nenhuma venda via PIX no período selecionado.</div>';
+    return;
+  }
+
+  /* Cores para cards por vendedor */
+  var cores = ['#0369a1','#7c3aed','#d97706','#059669','#dc2626','#0891b2','#9333ea'];
+
+  /* ── Modo: Todos os meses → tabela cruzada ── */
+  if(!mesVal){
+    var html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.84rem">';
+    html += '<thead><tr style="background:#0369a1;color:#fff">';
+    html += '<th style="padding:10px 12px;text-align:left">Vendedor</th>';
+    meses.forEach(function(m){
+      var partes = m.split('-');
+      html += '<th style="padding:10px 12px;text-align:right">'+(nomeMeses[partes[1]]||partes[1])+'/'+partes[0].substring(2)+'</th>';
+    });
+    html += '<th style="padding:10px 12px;text-align:right">TOTAL</th>';
+    html += '</tr></thead><tbody>';
+
+    /* totais por coluna (mês) */
+    var totaisMes = {};
+    meses.forEach(function(m){ totaisMes[m]=0; });
+
+    vendedores.forEach(function(vend, vi){
+      var totalVend = 0;
+      html += '<tr style="border-bottom:1px solid #f0f0f0;background:'+(vi%2?'#f8faff':'#fff')+'">';
+      html += '<td style="padding:9px 12px;font-weight:700;color:'+cores[vi%cores.length]+'">'+eh(vend)+'</td>';
+      meses.forEach(function(m){
+        var val = dados[vend][m]||0;
+        totalVend += val;
+        totaisMes[m] += val;
+        html += '<td style="padding:9px 12px;text-align:right;color:'+(val>0?'#0369a1':'#ccc')+'">'+
+          (val>0 ? brl(val) : '—')+'</td>';
+      });
+      html += '<td style="padding:9px 12px;text-align:right;font-weight:800;color:#0369a1">'+brl(totalVend)+'</td>';
+      html += '</tr>';
+    });
+
+    /* linha de totais */
+    html += '<tr style="background:#e0f2fe;font-weight:700">';
+    html += '<td style="padding:9px 12px;color:#0369a1">TOTAL</td>';
+    var totalGeral = 0;
+    meses.forEach(function(m){
+      totalGeral += totaisMes[m];
+      html += '<td style="padding:9px 12px;text-align:right;color:#0369a1">'+brl(totaisMes[m])+'</td>';
+    });
+    html += '<td style="padding:9px 12px;text-align:right;font-size:1rem;color:#0369a1">'+brl(totalGeral)+'</td>';
+    html += '</tr>';
+    html += '</tbody></table></div>';
+    body.innerHTML = html;
+
+  } else {
+    /* ── Modo: Mês específico → cards por vendedor ── */
+    var mesChaveAtual = anoVal+'-'+mesVal;
+    var nomeMesAtual  = (nomeMeses[mesVal]||mesVal)+'/'+String(anoVal).substring(2);
+    var totalMes = 0;
+    vendedores.forEach(function(v){ totalMes += (dados[v][mesChaveAtual]||0); });
+
+    var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px">';
+    vendedores.forEach(function(vend, vi){
+      var val = dados[vend][mesChaveAtual]||0;
+      var pct = totalMes > 0 ? (val/totalMes*100).toFixed(1) : 0;
+      var cor = cores[vi%cores.length];
+      html +=
+        '<div style="background:#fff;border:1px solid #e0e7ff;border-left:4px solid '+cor+';border-radius:10px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)">'+
+          '<div style="font-size:.78rem;font-weight:700;color:#64748b;margin-bottom:6px">'+eh(vend)+'</div>'+
+          '<div style="font-size:1.4rem;font-weight:900;color:'+cor+'">'+brl(val)+'</div>'+
+          '<div style="margin-top:6px;background:#f1f5f9;border-radius:4px;height:6px">'+
+            '<div style="width:'+pct+'%;background:'+cor+';border-radius:4px;height:6px;transition:.4s"></div>'+
+          '</div>'+
+          '<div style="font-size:.72rem;color:#94a3b8;margin-top:4px">'+pct+'% do total PIX</div>'+
+        '</div>';
+    });
+    html += '</div>';
+    html += '<div style="background:#e0f2fe;border-radius:8px;padding:10px 16px;font-size:.88rem;display:flex;justify-content:space-between;align-items:center">'+
+      '<span style="font-weight:700;color:#0369a1">📱 Total PIX — '+nomeMesAtual+'</span>'+
+      '<span style="font-size:1.1rem;font-weight:900;color:#0369a1">'+brl(totalMes)+'</span>'+
+    '</div>';
+    body.innerHTML = html;
+  }
+}
+
+function inicializarSelectsPixVendedor(){
+  var selAno = document.getElementById('pix-sel-ano');
+  var anoAtual = new Date().getFullYear();
+  selAno.innerHTML = '';
+  for(var i=anoAtual; i>=anoAtual-2; i--){
+    var opt = document.createElement('option');
+    opt.value = i; opt.textContent = i;
+    selAno.appendChild(opt);
+  }
+  /* Pré-seleciona o mês atual */
+  var mesAtualNum = String(new Date().getMonth()+1).padStart(2,'0');
+  document.getElementById('pix-sel-mes').value = mesAtualNum;
+}
+
+/* ══════════════════════════════════════════
+   RETIRADAS DO DONO — gráfico anual + indicador mês
+══════════════════════════════════════════ */
+var _chartRetiradaDono = null;
+
+async function carregarRetiradaDono(){
+  var selAno = document.getElementById('rd-sel-ano');
+  var ano = parseInt(selAno.value) || new Date().getFullYear();
+  var inicio = ano+'-01-01';
+  var fim    = ano+'-12-31';
+
+  var r = await db.from('contas_pagar')
+    .select('valor,data_vencimento,data_pagamento,pago,descricao')
+    .eq('retirada_dono', true)
+    .gte('data_vencimento', inicio)
+    .lte('data_vencimento', fim)
+    .order('data_vencimento');
+
+  var registros = r.data || [];
+
+  /* Agrupa por mês (usa data_vencimento para posicionar no gráfico) */
+  var porMes = new Array(12).fill(0);
+  var anoAtual = new Date().getFullYear();
+  var mesAtual = new Date().getMonth(); /* 0-based */
+  var totalMesAtual = 0, qtdMesAtual = 0, totalAno = 0;
+
+  registros.forEach(function(c){
+    var data = c.data_vencimento || '';
+    if(!data) return;
+    var m = parseInt(data.substring(5,7)) - 1; /* 0-based */
+    var val = Number(c.valor||0);
+    porMes[m] += val;
+    totalAno  += val;
+    if(ano === anoAtual && m === mesAtual){
+      totalMesAtual += val;
+      qtdMesAtual++;
+    }
+  });
+
+  /* Indicadores */
+  var nomeMesAtualStr = new Date().toLocaleString('pt-BR',{month:'long'});
+  document.getElementById('rd-mes-valor').textContent = brl(totalMesAtual);
+  document.getElementById('rd-mes-nome').textContent  = nomeMesAtualStr.charAt(0).toUpperCase()+nomeMesAtualStr.slice(1)+' '+anoAtual;
+  document.getElementById('rd-mes-qtd').textContent   = qtdMesAtual;
+  document.getElementById('rd-ano-valor').textContent = brl(totalAno);
+  document.getElementById('rd-ano-label').textContent = 'em '+ano;
+
+  /* Gráfico */
+  var ctx = document.getElementById('chartRetiradaDono').getContext('2d');
+  if(_chartRetiradaDono) _chartRetiradaDono.destroy();
+
+  var labMeses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  var cores = porMes.map(function(_,i){
+    return (ano === anoAtual && i === mesAtual) ? '#7c3aed' : '#c4b5fd';
+  });
+
+  _chartRetiradaDono = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labMeses,
+      datasets: [{
+        label: 'Retiradas do Dono',
+        data: porMes,
+        backgroundColor: cores,
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: function(ctx){ return 'R$ '+Number(ctx.raw).toLocaleString('pt-BR',{minimumFractionDigits:2}); } }
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: function(v){ return brl(v); } } }
+      }
+    }
+  });
+}
+
+function inicializarSelectRD(){
+  var sel = document.getElementById('rd-sel-ano');
+  var anoAtual = new Date().getFullYear();
+  sel.innerHTML = '';
+  for(var i=anoAtual; i>=anoAtual-2; i--){
+    var opt = document.createElement('option');
+    opt.value = i; opt.textContent = i;
+    sel.appendChild(opt);
+  }
+}
+
+/* ══════════════════════════════════════════
    BOOT
 ══════════════════════════════════════════ */
+inicializarSelectsPixVendedor();
+inicializarSelectRD();
 carregarTudo();
+carregarPixVendedor();
+carregarRetiradaDono();
 atualizarBarraTokens();
 </script>
 <script src="sidebar.js"></script>
