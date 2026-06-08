@@ -870,6 +870,14 @@ tbody td{padding:8px 12px}
     </div>
     <div class="cmp"><label>Endereço</label><input id="cc-end" placeholder="Rua, número, bairro"></div>
     <div class="cmp"><label>E-mail</label><input type="email" id="cc-email" placeholder="email@exemplo.com"></div>
+    <div style="border-top:1px dashed var(--borda);margin:12px 0 10px;padding-top:10px">
+      <div style="font-size:.78rem;font-weight:700;color:var(--azul);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">🚗 Veículo</div>
+      <div class="g2">
+        <div class="cmp"><label>Marca *</label><input id="cc-marca" placeholder="Ex: Honda, VW, Ford"></div>
+        <div class="cmp"><label>Modelo *</label><input id="cc-modelo" placeholder="Ex: Civic, Gol, Ka"></div>
+      </div>
+      <div class="cmp" style="max-width:180px"><label>Placa</label><input id="cc-placa" placeholder="ABC-1234" style="text-transform:uppercase"></div>
+    </div>
     <div class="mac">
       <button class="btn bc" onclick="document.getElementById('modal-cad-cli').classList.remove('ab')">Cancelar</button>
       <button class="btn bv" onclick="salvarNovoCliente()">💾 Salvar</button>
@@ -2720,7 +2728,7 @@ function imprimirCupomVenda(){
       '<div class="header">'+
         '<h1>Mega Som e Acess\u00f3rios<\/h1>'+
         '<p>Av. Coronel Luiz Maia, 1663 \u2014 Montes Claros\/MG \u2014 CEP 39402-667<\/p>'+
-        '<p>(38) 2100-4246 \u00b7 megasomacessorios@gmail.com<\/p>'+
+        '<p>(38) 99195-9080<\/p>'+
       '<\/div>'+
       '<div class="info">'+info+'<\/div>'+
       '<table>'+
@@ -2736,6 +2744,10 @@ function imprimirCupomVenda(){
         '<div class="met">'+metodo+'<\/div>'+
       '<\/div>'+
       '<div class="rodape">Garantia de 90 dias nas pe\u00e7as e servi\u00e7os \u00b7 Obrigado pela prefer\u00eancia!<\/div>'+
+      '<div class="assinaturas">'+
+        '<div class="ass-box"><div class="ass-linha"><\/div><div class="ass-label">Assinatura do Vendedor<\/div><\/div>'+
+        '<div class="ass-box"><div class="ass-linha"><\/div><div class="ass-label">Assinatura do Cliente<\/div><\/div>'+
+      '<\/div>'+
     '<\/div>';
   }
 
@@ -2760,7 +2772,11 @@ function imprimirCupomVenda(){
       '.bruto{color:#888;text-decoration:line-through;font-size:10px}'+
       '.liq{font-size:14px;font-weight:800;color:#2e7d32;margin-top:3px}'+
       '.met{font-size:10px;margin-top:2px;color:#444}'+
-      '.rodape{text-align:center;font-size:8px;color:#aaa;margin-top:7px;border-top:1px dashed #ccc;padding-top:5px}'+
+      '.rodape{text-align:center;font-size:8px;color:#aaa;margin-top:5px;border-top:1px dashed #ccc;padding-top:4px}'+
+      '.assinaturas{display:flex;gap:16px;margin-top:6px}'+
+      '.ass-box{flex:1;text-align:center}'+
+      '.ass-linha{border-top:1px solid #000;margin-bottom:3px;margin-top:10px}'+
+      '.ass-label{font-size:8px;color:#555}'+
       /* Linha de corte no meio exato da folha — sem margin, sem height extra */
       '.linha-corte{width:100%;border-top:1.5px dashed #999;position:relative;text-align:center;line-height:0}'+
       '.linha-corte span{'+
@@ -2873,7 +2889,7 @@ function lancaConfetti(){
    MODAL CADASTRO CLIENTE
 ══════════════════════════════════════════ */
 function abrirModalCadCli(){
-  ['cc-nome','cc-cpf','cc-tel','cc-end','cc-email'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['cc-nome','cc-cpf','cc-tel','cc-end','cc-email','cc-marca','cc-modelo','cc-placa'].forEach(function(id){ document.getElementById(id).value=''; });
   document.getElementById('modal-cad-cli').classList.add('ab');
   setTimeout(function(){ document.getElementById('cc-nome').focus(); },80);
 }
@@ -2884,10 +2900,15 @@ async function salvarNovoCliente(){
   var tel   = document.getElementById('cc-tel').value.trim()||null;
   var end   = document.getElementById('cc-end').value.trim()||null;
   var email = document.getElementById('cc-email').value.trim()||null;
+  var marca = document.getElementById('cc-marca').value.trim();
+  var modelo= document.getElementById('cc-modelo').value.trim();
+  var placa = document.getElementById('cc-placa').value.trim().toUpperCase()||null;
 
-  if(!nome){ toast('Nome obrigatório!','er'); return; }
+  if(!nome)  { toast('Nome obrigatório!','er');  document.getElementById('cc-nome').focus();  return; }
+  if(!marca) { toast('Marca do veículo obrigatória!','er');  document.getElementById('cc-marca').focus();  return; }
+  if(!modelo){ toast('Modelo do veículo obrigatório!','er'); document.getElementById('cc-modelo').focus(); return; }
 
-  var payload = { nome: nome, cpf: cpf, telefone: tel, email: email };
+  var payload = { nome, cpf, telefone: tel, email, veiculo_marca: marca, veiculo_modelo: modelo, veiculo_placa: placa };
   console.log('[CadCli] inserindo:', payload);
 
   var r = await db.from('clientes').insert(payload).select('id,nome,telefone').single();
@@ -3889,7 +3910,7 @@ function preencherVeiOS(v){
 }
 
 function abrirCadCliOS(){
-  ['cc-nome','cc-cpf','cc-tel','cc-end','cc-email'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['cc-nome','cc-cpf','cc-tel','cc-end','cc-email','cc-marca','cc-modelo','cc-placa'].forEach(function(id){ document.getElementById(id).value=''; });
   document.getElementById('modal-cad-cli').classList.add('ab');
 }
 
@@ -4229,7 +4250,7 @@ function limparClienteFiado(){
 }
 
 function abrirCadCliFiado(){
-  ['cc-nome','cc-cpf','cc-tel','cc-end','cc-email'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['cc-nome','cc-cpf','cc-tel','cc-end','cc-email','cc-marca','cc-modelo','cc-placa'].forEach(function(id){ document.getElementById(id).value=''; });
   document.getElementById('modal-cad-cli').classList.add('ab');
 }
 
