@@ -345,6 +345,7 @@ tbody td{padding:8px 12px}
   <button class="aba ativa" onclick="aba('venda')">🛒 Nova Venda</button>
   <button class="aba"       onclick="aba('historico')">📜 Histórico de Vendas</button>
   <button class="aba"       onclick="aba('fiado')" style="color:#e74c3c">💳 Pendentes (Fiado)</button>
+  <button class="aba"       onclick="aba('garantia')" style="color:#2dcc70">🛡️ Garantia</button>
 </div>
 
 <!-- ══════════════════════════════════
@@ -498,8 +499,55 @@ tbody td{padding:8px 12px}
 </div>
 
 <!-- ══════════════════════════════════
-     MODAL: QUANTIDADE
+     ABA GARANTIA
 ══════════════════════════════════ -->
+<div id="p-garantia" class="painel" style="padding:16px;overflow-y:auto;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border:2px solid #4caf50;border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;flex:0 0 auto">
+      <span style="font-size:1.8rem">🛡️</span>
+      <div>
+        <div style="font-weight:800;font-size:.95rem;color:#1b5e20">Garantia de Produtos</div>
+        <div style="font-size:.75rem;color:#388e3c">90 dias a partir da data de venda</div>
+      </div>
+    </div>
+    <span id="gar-resumo" style="font-size:.82rem;color:#888;margin-left:auto"></span>
+  </div>
+
+  <div class="hist-filtros" style="margin-bottom:16px">
+    <input type="date" id="gar-de"  title="Vendido após">
+    <input type="date" id="gar-ate" title="Vendido antes de">
+    <input id="gar-busca" placeholder="Buscar por cliente ou produto..."
+      style="min-width:240px;padding:7px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.86rem;outline:none"
+      onkeydown="if(event.key==='Enter') carregarGarantia()">
+    <select id="gar-status" style="padding:7px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.86rem;outline:none;background:#fff;cursor:pointer">
+      <option value="">Todas as garantias</option>
+      <option value="vigente">✅ Vigente</option>
+      <option value="expirada">⌛ Expirada</option>
+    </select>
+    <button class="btn ba" onclick="carregarGarantia()">🔄 Filtrar</button>
+  </div>
+
+  <div style="overflow-x:auto;background:#fff;border-radius:10px;box-shadow:var(--sombra)">
+    <table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:820px">
+      <thead>
+        <tr style="background:var(--azul);color:#fff;position:sticky;top:0;z-index:5">
+          <th style="padding:10px 12px;text-align:left;white-space:nowrap">#Venda</th>
+          <th style="padding:10px 12px;text-align:left;white-space:nowrap">Data da Venda</th>
+          <th style="padding:10px 12px;text-align:left">Cliente</th>
+          <th style="padding:10px 12px;text-align:left">Produto / Serviço</th>
+          <th style="padding:10px 12px;text-align:center">Qtd</th>
+          <th style="padding:10px 12px;text-align:right">Valor</th>
+          <th style="padding:10px 12px;text-align:center">Venc. Garantia</th>
+          <th style="padding:10px 12px;text-align:center">Status</th>
+          <th style="padding:10px 12px;text-align:center">Ação</th>
+        </tr>
+      </thead>
+      <tbody id="gar-tbody">
+        <tr><td colspan="9" style="text-align:center;padding:32px;color:#bbb">Use os filtros acima e clique em Filtrar.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 <div class="bd" id="modal-qtd">
   <div class="modal" style="width:380px">
     <button class="mf" onclick="fecharModalQtd()">✕</button>
@@ -1348,14 +1396,15 @@ function toast(msg,tipo){
    ABAS
 ══════════════════════════════════════════ */
 function aba(nome){
-  ['venda','historico','fiado'].forEach(function(n){
+  ['venda','historico','fiado','garantia'].forEach(function(n){
     document.getElementById('p-'+n).classList.toggle('ativo',n===nome);
-    document.querySelectorAll('.aba').forEach(function(b,i){
-      b.classList.toggle('ativa',['venda','historico','fiado'][i]===nome);
-    });
+  });
+  document.querySelectorAll('.aba').forEach(function(b,i){
+    b.classList.toggle('ativa',['venda','historico','fiado','garantia'][i]===nome);
   });
   if(nome==='historico') carregarHistorico();
   if(nome==='fiado')     carregarFiados();
+  if(nome==='garantia')  carregarGarantia();
 }
 
 /* ══════════════════════════════════════════
@@ -1372,7 +1421,6 @@ async function carregarProdutos(){
   while(buscando){
     var r = await db.from('itens')
       .select('codigo,codigo_barras,nome,marca,aplicacao,estoque,preco_venda,valor_unitario,categoria_id,foto_url')
-      .gt('preco_venda',0)
       .order('nome')
       .range(de, ate);
 
@@ -1455,11 +1503,11 @@ p.codigo.toLowerCase().includes(t) ||
       '<td>'+eh(p.marca||'—')+'</td>'+
       '<td style="font-size:.8rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:var(--azul2)" title="Clique para ver aplicações" data-aplicacao="'+eh(p.aplicacao||'')+'" onclick="abrirModalAplicacoes(this.getAttribute(\'data-aplicacao\'))" class="td-aplicacao">'+eh((p.aplicacao||'—').substring(0,40))+'</td>'+
       '<td class="td-estoque"><span class="'+cls+'">'+eh(estTxt)+'</span></td>'+
-      '<td class="td-preco">'+brl(p.preco_venda)+
+      '<td class="td-preco">'+(p.preco_venda>0 ? brl(p.preco_venda) : '<span style="color:#e67e22;font-size:.78rem;font-weight:700">⚠️ Sem preço</span>')+
         '<div class="tip">'+
-          '💰 Venda: <b>'+brl(p.preco_venda)+'</b><br>'+
+          '💰 Venda: <b>'+(p.preco_venda>0?brl(p.preco_venda):'Não cadastrado')+'</b><br>'+
           '🏷️ Custo: <b>'+brl(p.valor_unitario)+'</b><br>'+
-          (p.valor_unitario>0
+          (p.valor_unitario>0 && p.preco_venda>0
             ? '📈 Margem: <b style="color:#2ecc71">'+
               (((p.preco_venda-p.valor_unitario)/p.valor_unitario)*100).toFixed(1)+'%</b>'
             : '')+
@@ -1568,6 +1616,12 @@ function pedirQtd(codigo){
   if(!p) return;
   if(p.estoque<=0){ toast('Produto esgotado!','av'); return; }
   _prodAtual = p;
+
+  /* Se produto sem preço, abre modal de preço primeiro */
+  if(!p.preco_venda || p.preco_venda<=0){
+    abrirModalPrecoProduto(p);
+    return;
+  }
 
   /* qtd atual já no carrinho */
   var jaNoCarr = _carrinho.find(function(c){ return c.codigo===codigo; });
@@ -1952,6 +2006,19 @@ function abrirModalFinalizar(){
   /* reset modo pagamento para simples */
   setPagMode('simples');
   recalcularTotal();
+
+  /* Se há OS aberta, preenche cliente automaticamente */
+  if(_osSel && _osSel.cliente_nome){
+    _clienteFinSel = {
+      id: _osSel.cliente_id || null,
+      nome: _osSel.cliente_nome,
+      telefone: null
+    };
+    if(_osSel.cliente_id) document.getElementById('fin-cli-id').value = _osSel.cliente_id;
+    document.getElementById('fin-cli-nome').textContent = _osSel.cliente_nome;
+    document.getElementById('fin-cli-sel').style.display = 'flex';
+  }
+
   document.getElementById('modal-fin').classList.add('ab');
 }
 
@@ -2652,7 +2719,7 @@ function imprimirCupomVenda(){
       '<div class="via-label">'+rotulo+'<\/div>'+
       '<div class="header">'+
         '<h1>Mega Som e Acess\u00f3rios<\/h1>'+
-        '<p>Rua Roque Ferreira Pimenta, 418A \u2014 Ja\u00edba\/MG<\/p>'+
+        '<p>Av. Coronel Luiz Maia, 1663 \u2014 Montes Claros\/MG \u2014 CEP 39402-667<\/p>'+
         '<p>(38) 2100-4246 \u00b7 megasomacessorios@gmail.com<\/p>'+
       '<\/div>'+
       '<div class="info">'+info+'<\/div>'+
@@ -2668,7 +2735,7 @@ function imprimirCupomVenda(){
         '<div class="liq">'+liq+'<\/div>'+
         '<div class="met">'+metodo+'<\/div>'+
       '<\/div>'+
-      '<div class="rodape">Garantia de 90 dias nas pe\u00e7as \u00b7 Obrigado pela prefer\u00eancia!<\/div>'+
+      '<div class="rodape">Garantia de 90 dias nas pe\u00e7as e servi\u00e7os \u00b7 Obrigado pela prefer\u00eancia!<\/div>'+
     '<\/div>';
   }
 
@@ -2676,38 +2743,34 @@ function imprimirCupomVenda(){
     '<title>Cupom \u2014 Mega Som<\/title>'+
     '<style>'+
       '*{box-sizing:border-box;margin:0;padding:0}'+
-      'body{font-family:Arial,sans-serif;font-size:11px;color:#000}'+
+      'html,body{width:210mm;height:297mm;overflow:hidden;font-family:Arial,sans-serif;font-size:11px;color:#000}'+
       'h1{font-size:13px;margin-bottom:2px}'+
       'p{font-size:9px;color:#555;margin-bottom:1px}'+
-      /* Cada via ocupa metade da folha A4 (297mm / 2 = 148.5mm) */
-      '.via{width:100%;padding:6mm 10mm;height:148.5mm;overflow:hidden;position:relative}'+
+      /* Cada via ocupa exatamente metade da folha */
+      '.via{width:100%;padding:5mm 10mm;height:148.5mm;overflow:hidden;position:relative}'+
       '.via-label{display:inline-block;background:#004aad;color:#fff;font-size:9px;font-weight:700;'+
-        'padding:2px 8px;border-radius:3px;margin-bottom:6px;letter-spacing:.5px;text-transform:uppercase}'+
-      '.header{text-align:center;border-bottom:2px solid #004aad;padding-bottom:7px;margin-bottom:9px}'+
-      '.info{background:#f5f5f5;border-radius:5px;padding:6px 8px;margin-bottom:9px;font-size:10px;line-height:1.7}'+
-      'table{width:100%;border-collapse:collapse;margin-bottom:9px}'+
-      'thead th{background:#004aad;color:#fff;padding:5px 6px;text-align:left;font-size:10px}'+
-      'tbody td{padding:4px 6px;border-bottom:1px solid #eee;font-size:10px}'+
+        'padding:2px 8px;border-radius:3px;margin-bottom:5px;letter-spacing:.5px;text-transform:uppercase}'+
+      '.header{text-align:center;border-bottom:2px solid #004aad;padding-bottom:6px;margin-bottom:7px}'+
+      '.info{background:#f5f5f5;border-radius:5px;padding:5px 8px;margin-bottom:7px;font-size:10px;line-height:1.6}'+
+      'table{width:100%;border-collapse:collapse;margin-bottom:7px}'+
+      'thead th{background:#004aad;color:#fff;padding:4px 6px;text-align:left;font-size:10px}'+
+      'tbody td{padding:3px 6px;border-bottom:1px solid #eee;font-size:10px}'+
       'tbody tr:nth-child(even){background:#fafafa}'+
-      '.totais{background:#f5f5f5;border-radius:5px;padding:7px 10px}'+
+      '.totais{background:#f5f5f5;border-radius:5px;padding:6px 10px}'+
       '.bruto{color:#888;text-decoration:line-through;font-size:10px}'+
       '.liq{font-size:14px;font-weight:800;color:#2e7d32;margin-top:3px}'+
       '.met{font-size:10px;margin-top:2px;color:#444}'+
-      '.rodape{text-align:center;font-size:8px;color:#aaa;margin-top:8px;border-top:1px dashed #ccc;padding-top:6px}'+
-      /* Linha de corte no meio da folha */
-      '.linha-corte{'+
-        'width:100%;height:0;'+
-        'border-top:2px dashed #999;'+
-        'position:relative;text-align:center;margin:0'+
-      '}'+
+      '.rodape{text-align:center;font-size:8px;color:#aaa;margin-top:7px;border-top:1px dashed #ccc;padding-top:5px}'+
+      /* Linha de corte no meio exato da folha — sem margin, sem height extra */
+      '.linha-corte{width:100%;border-top:1.5px dashed #999;position:relative;text-align:center;line-height:0}'+
       '.linha-corte span{'+
         'background:#fff;padding:0 8px;font-size:9px;color:#999;'+
-        'position:absolute;top:-8px;left:50%;transform:translateX(-50%);white-space:nowrap'+
+        'position:relative;top:-6px;white-space:nowrap'+
       '}'+
       '@media print{'+
-        '@page{margin:0;size:A4}'+
-        'body{margin:0}'+
-        '.linha-corte{border-top:2px dashed #bbb}'+
+        '@page{margin:0;size:A4;orphans:0;widows:0}'+
+        'html,body{width:210mm;height:297mm;overflow:hidden;page-break-after:avoid}'+
+        '.linha-corte{border-top:1.5px dashed #bbb}'+
       '}'+
     '<\/style><\/head><body>'+
     /* VIA DO CLIENTE — metade superior */
@@ -2980,6 +3043,141 @@ async function carregarHistorico(){
   document.getElementById('hist-resumo').textContent =
     dados.length+' venda(s) · Total: '+brl(totGeral);
 }
+/* ══════════════════════════════════════════
+   GARANTIA
+══════════════════════════════════════════ */
+async function carregarGarantia(){
+  var tbody = document.getElementById('gar-tbody');
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:#bbb">Carregando...</td></tr>';
+
+  var de     = document.getElementById('gar-de').value;
+  var ate    = document.getElementById('gar-ate').value;
+  var busca  = document.getElementById('gar-busca').value.trim().toLowerCase();
+  var status = document.getElementById('gar-status').value;
+  var hoje   = new Date(); hoje.setHours(0,0,0,0);
+
+  /* busca vendas não canceladas */
+  var q = db.from('vendas')
+    .select('id,data,cliente_nome,total')
+    .neq('status','cancelada');
+
+  if(de)  q = q.gte('data', de+'T00:00:00');
+  if(ate) q = q.lte('data', ate+'T23:59:59');
+
+  var rv = await q.order('data',{ascending:false}).limit(300);
+  if(rv.error){
+    tbody.innerHTML='<tr><td colspan="9" style="color:red;padding:20px">❌ '+eh(rv.error.message)+'</td></tr>';
+    return;
+  }
+
+  var vendas = (rv.data||[]).filter(function(v){
+    if(!busca) return true;
+    return (v.cliente_nome||'').toLowerCase().includes(busca);
+  });
+
+  if(!vendas.length){
+    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:32px;color:#bbb">Nenhuma venda encontrada.</td></tr>';
+    document.getElementById('gar-resumo').textContent='';
+    return;
+  }
+
+  /* busca itens de todas as vendas */
+  var ids = vendas.map(function(v){ return v.id; });
+  var ri  = await db.from('itens_venda')
+    .select('venda_id,nome_produto,quantidade,preco_unitario,tipo')
+    .in('venda_id', ids)
+    .eq('revertido', false);
+
+  if(ri.error){
+    tbody.innerHTML='<tr><td colspan="9" style="color:red;padding:20px">❌ '+eh(ri.error.message)+'</td></tr>';
+    return;
+  }
+
+  /* monta mapa venda_id → data */
+  var mapaVenda = {};
+  vendas.forEach(function(v){ mapaVenda[v.id] = v; });
+
+  /* filtra por nome do produto se houver busca */
+  var itens = (ri.data||[]).filter(function(it){
+    if(!busca) return true;
+    var venda = mapaVenda[it.venda_id];
+    var nomeCliente = venda ? (venda.cliente_nome||'').toLowerCase() : '';
+    var nomeProd = (it.nome_produto||'').toLowerCase();
+    return nomeCliente.includes(busca) || nomeProd.includes(busca);
+  });
+
+  /* aplica filtro de status */
+  itens = itens.filter(function(it){
+    var venda = mapaVenda[it.venda_id];
+    if(!venda) return false;
+    var dataVenda = new Date(venda.data); dataVenda.setHours(0,0,0,0);
+    var venc = new Date(dataVenda); venc.setDate(venc.getDate()+90);
+    var vigente = venc >= hoje;
+    if(status==='vigente'  && !vigente) return false;
+    if(status==='expirada' &&  vigente) return false;
+    return true;
+  });
+
+  if(!itens.length){
+    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:32px;color:#bbb">Nenhum item encontrado com os filtros aplicados.</td></tr>';
+    document.getElementById('gar-resumo').textContent='';
+    return;
+  }
+
+  /* ordena por data de venda desc */
+  itens.sort(function(a,b){
+    var da = new Date(mapaVenda[a.venda_id].data);
+    var db2= new Date(mapaVenda[b.venda_id].data);
+    return db2-da;
+  });
+
+  var vigCount=0, expCount=0;
+
+  tbody.innerHTML = itens.map(function(it){
+    var venda = mapaVenda[it.venda_id];
+    var dataVenda = new Date(venda.data); dataVenda.setHours(0,0,0,0);
+    var venc = new Date(dataVenda); venc.setDate(venc.getDate()+90);
+    var vigente = venc >= hoje;
+    var diasRestantes = Math.ceil((venc-hoje)/(1000*60*60*24));
+
+    if(vigente) vigCount++; else expCount++;
+
+    var statusBadge, rowStyle='border-bottom:1px solid #f0f0f0';
+    if(vigente){
+      if(diasRestantes<=15){
+        statusBadge='<span style="background:#fff3cd;color:#856404;padding:3px 9px;border-radius:10px;font-size:.74rem;font-weight:700">⚠️ Vence em '+diasRestantes+'d</span>';
+        rowStyle='border-bottom:1px solid #f0f0f0;background:#fffdf0';
+      } else {
+        statusBadge='<span style="background:#d4edda;color:#155724;padding:3px 9px;border-radius:10px;font-size:.74rem;font-weight:700">✅ Vigente ('+diasRestantes+'d)</span>';
+      }
+    } else {
+      statusBadge='<span style="background:#f8d7da;color:#721c24;padding:3px 9px;border-radius:10px;font-size:.74rem;font-weight:700">⌛ Expirada</span>';
+      rowStyle='border-bottom:1px solid #f0f0f0;opacity:.7';
+    }
+
+    var tipoIcon = it.tipo==='servico' ? '🔧 ' : '';
+
+    return '<tr style="'+rowStyle+'">'+
+      '<td style="padding:8px 12px;color:#aaa;font-size:.78rem">#'+venda.id+'</td>'+
+      '<td style="padding:8px 12px;white-space:nowrap;font-size:.8rem">'+dHora(venda.data)+'</td>'+
+      '<td style="padding:8px 12px;font-weight:600;font-size:.86rem">'+eh(venda.cliente_nome||'Consumidor Final')+'</td>'+
+      '<td style="padding:8px 12px">'+tipoIcon+eh(it.nome_produto)+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;color:#555">'+it.quantidade+'</td>'+
+      '<td style="padding:8px 12px;text-align:right;font-weight:700;color:var(--azul)">'+brl(it.preco_unitario*it.quantidade)+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-size:.8rem;white-space:nowrap">'+
+        venc.toLocaleDateString('pt-BR')+
+      '</td>'+
+      '<td style="padding:8px 12px;text-align:center">'+statusBadge+'</td>'+
+      '<td style="padding:8px 12px;text-align:center">'+
+        '<button class="btn ba" style="padding:3px 9px;font-size:.74rem" onclick="verDetalhesVenda('+venda.id+')">📋 Ver Venda</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+
+  document.getElementById('gar-resumo').textContent =
+    itens.length+' item(ns) · ✅ '+vigCount+' vigente(s) · ⌛ '+expCount+' expirada(s)';
+}
+
 /* ══════════════════════════════════════════
    DETALHES DA VENDA — com reversão por item
 ══════════════════════════════════════════ */
@@ -4658,9 +4856,51 @@ async function consultarStatusNFe(ref){
   }
 }
 
-carregarProdutos();
+/* ══════════════════════════════════════════
+   MODAL PREÇO — produto sem preço ao ser adicionado ao carrinho
+══════════════════════════════════════════ */
+function abrirModalPrecoProduto(prod){
+  _prodAtual = prod;
+  document.getElementById('mpp-titulo').textContent = prod.nome;
+  document.getElementById('mpp-codigo').textContent = prod.codigo;
+  document.getElementById('mpp-preco-venda').value = '';
+  document.getElementById('mpp-preco-custo').value = '';
+  document.getElementById('mpp-qtd').value = 1;
+  document.getElementById('mpp-qtd').max = prod.estoque;
+  document.getElementById('modal-preco-prod').classList.add('ab');
+  setTimeout(function(){ document.getElementById('mpp-preco-venda').focus(); }, 120);
+}
 
-/* Garante campo de busca sempre limpo (evita autocomplete do browser) */
+function fecharModalPrecoProd(){
+  document.getElementById('modal-preco-prod').classList.remove('ab');
+  _prodAtual = null;
+}
+
+async function confirmarPrecoProd(){
+  if(!_prodAtual) return;
+  var pVenda = parseFloat(String(document.getElementById('mpp-preco-venda').value).replace(',','.')) || 0;
+  var pCusto = parseFloat(String(document.getElementById('mpp-preco-custo').value).replace(',','.')) || 0;
+  var qtd    = parseInt(document.getElementById('mpp-qtd').value) || 1;
+
+  if(pVenda <= 0){ toast('Informe o preço de venda!','er'); document.getElementById('mpp-preco-venda').focus(); return; }
+  if(qtd < 1 || qtd > _prodAtual.estoque){ toast('Quantidade inválida!','er'); return; }
+
+  /* Atualiza o preço no cache local para essa sessão */
+  _prodAtual.preco_venda = pVenda;
+  if(pCusto > 0) _prodAtual.valor_unitario = pCusto;
+
+  /* Salva no banco (opcional mas conveniente) */
+  var update = { preco_venda: pVenda };
+  if(pCusto > 0) update.valor_unitario = pCusto;
+  db.from('itens').update(update).eq('codigo', _prodAtual.codigo)
+    .then(function(r){ if(r.error) console.warn('Preço não salvo no banco:', r.error); });
+
+  var prodParaAdd = _prodAtual; /* salva referência antes de fechar (fechar zera _prodAtual) */
+  fecharModalPrecoProd();
+  adicionarAoCarrinho(prodParaAdd, qtd);
+}
+
+carregarProdutos();
 document.getElementById('inp-busca').value = '';
 /* Verifica se veio com OS pendente do check-in */
 (async function(){
@@ -4761,6 +5001,12 @@ window.addEventListener('hashchange', function(){
           toast('⚠️ Estoque máximo já no carrinho!','av');
           return;
         }
+        /* Se produto sem preço, abre modal de preço */
+        if(!prod.preco_venda || prod.preco_venda<=0){
+          _prodAtual = prod;
+          abrirModalPrecoProduto(prod);
+          return;
+        }
         adicionarAoCarrinho(prod, 1);
         /* feedback visual no input */
         if(inpBusca){
@@ -4823,6 +5069,45 @@ window.addEventListener('hashchange', function(){
     <div class="mac" style="margin-top:14px">
       <button class="btn bc" onclick="fecharModalVendedor()">Cancelar</button>
       <button class="btn bv" onclick="salvarVendedor()">✅ Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL: PREÇO DO PRODUTO (sem preço cadastrado)
+══════════════════════════════════ -->
+<div class="bd" id="modal-preco-prod">
+  <div class="modal" style="max-width:420px">
+    <button class="mf" onclick="fecharModalPrecoProd()">✕</button>
+    <h2>💰 Definir Preço para Venda</h2>
+    <div style="background:#fff8e1;border:1px solid #ffc107;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:.85rem;line-height:1.6;color:#856404">
+      ⚠️ Este produto não tem preço cadastrado.<br>
+      Informe o preço de venda para continuar.
+    </div>
+    <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:.85rem;line-height:1.7">
+      <b id="mpp-titulo" style="font-size:.95rem;color:#2c3e50">—</b><br>
+      <span style="font-family:monospace;font-size:.78rem;color:#888">Código: <span id="mpp-codigo">—</span></span>
+    </div>
+    <div class="cmp">
+      <label>Preço de Venda (R$) *</label>
+      <input id="mpp-preco-venda" type="number" step="0.01" min="0.01" placeholder="0,00"
+        onkeydown="if(event.key==='Enter'){document.getElementById('mpp-preco-custo').focus()}"
+        style="font-size:1.1rem;font-weight:700;color:var(--azul)">
+    </div>
+    <div class="cmp">
+      <label>Preço de Custo (R$) <span style="font-weight:400;color:#999">— opcional</span></label>
+      <input id="mpp-preco-custo" type="number" step="0.01" min="0" placeholder="0,00"
+        onkeydown="if(event.key==='Enter'){document.getElementById('mpp-qtd').focus()}">
+    </div>
+    <div class="cmp">
+      <label>Quantidade</label>
+      <input id="mpp-qtd" type="number" min="1" value="1"
+        onkeydown="if(event.key==='Enter'){confirmarPrecoProd()}"
+        style="font-size:1.1rem;text-align:center;font-weight:700">
+    </div>
+    <div class="mac">
+      <button class="btn bc" onclick="fecharModalPrecoProd()">Cancelar</button>
+      <button class="btn bv" onclick="confirmarPrecoProd()">✅ Adicionar ao Carrinho</button>
     </div>
   </div>
 </div>
