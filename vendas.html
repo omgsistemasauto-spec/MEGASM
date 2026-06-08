@@ -873,8 +873,8 @@ tbody td{padding:8px 12px}
     <div style="border-top:1px dashed var(--borda);margin:12px 0 10px;padding-top:10px">
       <div style="font-size:.78rem;font-weight:700;color:var(--azul);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">🚗 Veículo</div>
       <div class="g2">
-        <div class="cmp"><label>Marca *</label><input id="cc-marca" placeholder="Ex: Honda, VW, Ford"></div>
-        <div class="cmp"><label>Modelo *</label><input id="cc-modelo" placeholder="Ex: Civic, Gol, Ka"></div>
+        <div class="cmp"><label>Marca</label><input id="cc-marca" placeholder="Ex: Honda, VW, Ford"></div>
+        <div class="cmp"><label>Modelo</label><input id="cc-modelo" placeholder="Ex: Civic, Gol, Ka"></div>
       </div>
       <div class="cmp" style="max-width:180px"><label>Placa</label><input id="cc-placa" placeholder="ABC-1234" style="text-transform:uppercase"></div>
     </div>
@@ -893,7 +893,7 @@ tbody td{padding:8px 12px}
     <div class="cupom-header">
       <h2>🎉 Venda Realizada!</h2>
       <p>Mega Som e Acessórios — Rua Roque Ferreira Pimenta, 418A</p>
-      <p>38 2100-4246 | megasomacessorios@gmail.com | Garantia 30 DIAS</p>
+      <p>38 2100-4246 | 30 DIASacessorios@gmail.com | Garantia 30 DIAS</p>
     </div>
     <div class="cupom-body">
       <div class="cupom-info" id="cupom-info"></div>
@@ -2905,8 +2905,6 @@ async function salvarNovoCliente(){
   var placa = document.getElementById('cc-placa').value.trim().toUpperCase()||null;
 
   if(!nome)  { toast('Nome obrigatório!','er');  document.getElementById('cc-nome').focus();  return; }
-  if(!marca) { toast('Marca do veículo obrigatória!','er');  document.getElementById('cc-marca').focus();  return; }
-  if(!modelo){ toast('Modelo do veículo obrigatório!','er'); document.getElementById('cc-modelo').focus(); return; }
 
   var payload = { nome, cpf, telefone: tel, email, veiculo_marca: marca, veiculo_modelo: modelo, veiculo_placa: placa };
   console.log('[CadCli] inserindo:', payload);
@@ -4043,7 +4041,7 @@ async function verImprimirOS(osId){
     '<div style="text-align:center;border-bottom:3px solid #2c3e50;padding-bottom:14px;margin-bottom:16px">'+
       '<div style="font-size:1.4rem;font-weight:800;color:#2c3e50;letter-spacing:1px">Mega Som e Acessórios</div>'+
       '<div style="font-size:.8rem;color:#666">Rua Roque Ferreira Pimenta, 418A &nbsp;|&nbsp; (38) 2100-4246</div>'+
-      '<div style="font-size:.8rem;color:#666">megasomacessorios@gmail.com &nbsp;|&nbsp; Garantia 30 DIAS</div>'+
+      '<div style="font-size:.8rem;color:#666">30 DIASacessorios@gmail.com &nbsp;|&nbsp; Garantia 30 DIAS</div>'+
     '</div>'+
     /* número + status */
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'+
