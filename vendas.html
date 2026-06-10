@@ -191,6 +191,7 @@ tbody td{padding:8px 12px}
 .bcredito{background:#cce5ff;color:#004085}
 .bdebito{background:#e2e3e5;color:#383d41}
 .bpix{background:#d1ecf1;color:#0c5460}
+.bretirada{background:#f3e8ff;color:#5b21b6}
 
 /* ABA */
 .abas{display:flex;gap:0;border-bottom:2px solid var(--borda);background:#fff;flex-shrink:0}
@@ -344,6 +345,7 @@ tbody td{padding:8px 12px}
 <div class="abas">
   <button class="aba ativa" onclick="aba('venda')">🛒 Nova Venda</button>
   <button class="aba"       onclick="aba('historico')">📜 Histórico de Vendas</button>
+  <button class="aba"       onclick="aba('retiradas')" style="color:#7c3aed">🏪 Retiradas</button>
   <button class="aba"       onclick="aba('fiado')" style="color:#e74c3c">💳 Pendentes (Fiado)</button>
   <button class="aba"       onclick="aba('garantia')" style="color:#2dcc70">🛡️ Garantia</button>
 </div>
@@ -458,6 +460,7 @@ tbody td{padding:8px 12px}
       <option value="">Todos os pagamentos</option>
       <option>Dinheiro</option><option>Cartão Crédito</option>
       <option>Cartão Débito</option><option>PIX</option>
+      <option>Retirada na Loja</option>
     </select>
     <input id="hist-busca" placeholder="Buscar cliente..." style="min-width:200px">
     <button class="btn ba" onclick="carregarHistorico()">🔄 Filtrar</button>
@@ -772,7 +775,12 @@ tbody td{padding:8px 12px}
           <option>Cartão Crédito</option>
           <option>Cartão Débito</option>
           <option>PIX</option>
+          <option>Retirada na Loja</option>
         </select>
+      </div>
+      <!-- INFO Retirada na Loja -->
+      <div id="div-info-retirada" style="display:none;background:#f3e8ff;border:1.5px solid #7c3aed;border-radius:9px;padding:10px 14px;margin-bottom:8px;font-size:.83rem;color:#5b21b6;font-weight:700">
+        🏪 <b>Retirada na Loja:</b> o estoque será descontado normalmente, mas <u>nenhum valor entra no financeiro</u>.
       </div>
       <!-- VENDEDOR PIX — aparece só quando PIX é selecionado -->
       <div class="cmp" id="div-vendedor-pix" style="display:none;background:#e0f2fe;border:1.5px solid #0284c7;border-radius:9px;padding:10px 12px">
@@ -1183,6 +1191,50 @@ tbody td{padding:8px 12px}
 </div>
 
 <!-- ══════════════════════════════════
+     ABA RETIRADAS
+══════════════════════════════════ -->
+<div id="p-retiradas" class="painel" style="padding:16px;overflow-y:auto;flex-direction:column">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <div style="background:linear-gradient(135deg,#f3e8ff,#ede9fe);border:2px solid #7c3aed;border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;flex:0 0 auto">
+      <span style="font-size:1.8rem">🏪</span>
+      <div>
+        <div style="font-weight:800;font-size:.95rem;color:#5b21b6">Retiradas na Loja</div>
+        <div style="font-size:.75rem;color:#7c3aed">Saída de estoque sem entrada financeira</div>
+      </div>
+    </div>
+    <span id="ret-resumo" style="font-size:.82rem;color:#888;margin-left:auto"></span>
+  </div>
+
+  <div class="hist-filtros" style="margin-bottom:14px">
+    <input type="date" id="ret-de"  title="De">
+    <input type="date" id="ret-ate" title="Até">
+    <input id="ret-busca" placeholder="Buscar por cliente ou produto..."
+      style="min-width:220px;padding:7px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.86rem;outline:none"
+      onkeydown="if(event.key==='Enter') carregarRetiradas()">
+    <button class="btn ba" onclick="carregarRetiradas()">🔄 Filtrar</button>
+  </div>
+
+  <div style="overflow-x:auto;background:#fff;border-radius:10px;box-shadow:var(--sombra)">
+    <table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:760px">
+      <thead>
+        <tr style="background:#5b21b6;color:#fff;position:sticky;top:0;z-index:5">
+          <th style="padding:10px 12px;text-align:left;white-space:nowrap">#</th>
+          <th style="padding:10px 12px;text-align:left;white-space:nowrap">Data / Hora</th>
+          <th style="padding:10px 12px;text-align:left">Cliente</th>
+          <th style="padding:10px 12px;text-align:center">Itens</th>
+          <th style="padding:10px 12px;text-align:left">Produtos Retirados</th>
+          <th style="padding:10px 12px;text-align:center">Status</th>
+          <th style="padding:10px 12px;text-align:center">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="ret-tbody">
+        <tr><td colspan="7" style="text-align:center;padding:32px;color:#bbb">Carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
      ABA FIADO
 ══════════════════════════════════ -->
 <div id="p-fiado" class="painel" style="padding:16px;overflow-y:auto;flex-direction:column">
@@ -1407,15 +1459,16 @@ function toast(msg,tipo){
    ABAS
 ══════════════════════════════════════════ */
 function aba(nome){
-  ['venda','historico','fiado','garantia'].forEach(function(n){
+  ['venda','historico','retiradas','fiado','garantia'].forEach(function(n){
     document.getElementById('p-'+n).classList.toggle('ativo',n===nome);
   });
   document.querySelectorAll('.aba').forEach(function(b,i){
-    b.classList.toggle('ativa',['venda','historico','fiado','garantia'][i]===nome);
+    b.classList.toggle('ativa',['venda','historico','retiradas','fiado','garantia'][i]===nome);
   });
   if(nome==='historico') carregarHistorico();
   if(nome==='fiado')     carregarFiados();
   if(nome==='garantia')  carregarGarantia();
+  if(nome==='retiradas') carregarRetiradas();
 }
 
 /* ══════════════════════════════════════════
@@ -2200,6 +2253,12 @@ function toggleVendedorPix(){
     document.getElementById('fin-vendedor-id').value = '';
     document.getElementById('fin-vendedor-pix-key').textContent = '';
   }
+  var divRet = document.getElementById('div-info-retirada');
+  if(divRet) divRet.style.display = metodo === 'Retirada na Loja' ? 'block' : 'none';
+  /* Retirada na Loja: oculta modo dividido e troco */
+  var btnDiv = document.getElementById('btn-pag-dividido');
+  if(btnDiv) btnDiv.style.display = metodo === 'Retirada na Loja' ? 'none' : '';
+  if(metodo === 'Retirada na Loja' && _pagMode === 'dividido') setPagMode('simples');
 }
 document.addEventListener('change', function(e){
   if(e.target.id === 'fin-vendedor-id'){
@@ -2250,8 +2309,9 @@ function recalcularTotal(){
 
   /* troco (modo simples) */
   if(_pagMode==='simples'){
+    var metAtual = document.getElementById('fin-metodo').value;
     document.getElementById('div-troco').style.display =
-      document.getElementById('fin-metodo').value==='Dinheiro' ? 'block' : 'none';
+      (metAtual==='Dinheiro') ? 'block' : 'none';
     calcularTroco();
   }
 
@@ -2636,6 +2696,12 @@ async function confirmarVenda(){
   }
   var cliId   = _clienteFinSel ? _clienteFinSel.id   : null;
 
+  /* RETIRADA NA LOJA: desconta estoque mas não entra no financeiro */
+  var isRetirada = (_pagMode === 'simples' && metodo === 'Retirada na Loja');
+  var totalFinanceiro = isRetirada ? 0 : parseFloat(total.toFixed(2));
+  var brutoFinanceiro = isRetirada ? 0 : parseFloat(bruto.toFixed(2));
+  var descFinanceiro  = isRetirada ? 0 : desc;
+
   /* valida soma no modo dividido */
   if(_pagMode === 'dividido'){
     var soma = parseFloat((val1 + val2).toFixed(2));
@@ -2652,9 +2718,9 @@ async function confirmarVenda(){
   try{
     /* 1. Insere venda */
     var rv = await db.from('vendas').insert({
-      total:parseFloat(total.toFixed(2)),
-      total_bruto:parseFloat(bruto.toFixed(2)),
-      desconto:desc,
+      total:totalFinanceiro,
+      total_bruto:brutoFinanceiro,
+      desconto:descFinanceiro,
       metodo_pagamento:metodoDB,
       cliente_nome:cliNome,
       cliente_id:cliId||null,
@@ -2717,7 +2783,7 @@ async function confirmarVenda(){
       }catch(e){ console.warn('Troca de óleo:', e); }
     }
 
-    mostrarCupom(vendaId, cliNome, metodoDB, bruto, total, desc, obs);
+    mostrarCupom(vendaId, cliNome, metodoDB, bruto, isRetirada ? 0 : total, desc, obs);
 
     /* Se houve troca de óleo, mostra cupom fidelidade logo após */
     if(qtdTrocas !== null){
@@ -3007,6 +3073,7 @@ function atribuir(r, met, val){
   else if(met === 'Cartão Crédito') r.credito += val;
   else if(met === 'Cartão Débito')  r.debito  += val;
   else if(met === 'PIX')       r.pix     += val;
+  /* Retirada na Loja: não soma em nenhuma coluna financeira */
 }
 
 async function carregarHistorico(){
@@ -3058,8 +3125,9 @@ async function carregarHistorico(){
     var pag    = parsePagamento(v);
     var total  = Number(v.total||0);
     var telCli = v.clientes ? v.clientes.telefone : null;
+    var isRet  = (v.metodo_pagamento||'').includes('Retirada na Loja');
 
-    if(!canc){
+    if(!canc && !isRet){
       totDin   += pag.dinheiro;
       totCred  += pag.credito;
       totDeb   += pag.debito;
@@ -3069,6 +3137,7 @@ async function carregarHistorico(){
 
     var rowStyle = canc
       ? 'opacity:.55;text-decoration:line-through;background:#fff5f5'
+      : isRet ? 'border-bottom:1px solid #f0f0f0;background:#fdf4ff'
       : 'border-bottom:1px solid #f0f0f0';
 
     var btnAcoes =
@@ -3081,6 +3150,7 @@ async function carregarHistorico(){
       '<td style="padding:8px 12px;white-space:nowrap;font-size:.8rem">'+dHora(v.data)+'</td>'+
       '<td style="padding:8px 12px">'+
         '<div style="font-weight:600;font-size:.86rem">'+eh(v.cliente_nome||'Consumidor Final')+'</div>'+
+        (isRet?'<div style="font-size:.72rem;font-weight:700;color:#5b21b6">🏪 Retirada na Loja</div>':'')+
         (v.desconto>0?'<div style="font-size:.74rem;color:#e74c3c">Desc: '+v.desconto+'%</div>':'')+
         (canc?'<div style="font-size:.72rem;color:#e74c3c;font-weight:700">❌ CANCELADA</div>':'')+
       '</td>'+
@@ -3098,7 +3168,9 @@ async function carregarHistorico(){
       '<td style="padding:8px 12px;text-align:right;font-weight:700;color:#0c5460">'+
         (pag.pix>0      ? brl(pag.pix)      : '<span style="color:#ddd">—</span>')+
       '</td>'+
-      '<td style="padding:8px 12px;text-align:right;font-weight:800;color:var(--verde2)">'+brl(total)+'</td>'+
+      '<td style="padding:8px 12px;text-align:right;font-weight:800;color:'+(isRet?'#5b21b6':'var(--verde2)')+'">'+
+        (isRet ? '<span class="badge bretirada">🏪 Retirada</span>' : brl(total))+
+      '</td>'+
       '<td style="padding:8px 12px;text-align:center">'+
         '<div style="display:flex;gap:4px;justify-content:center">'+btnAcoes+'</div>'+
       '</td>'+
@@ -3117,7 +3189,191 @@ async function carregarHistorico(){
     dados.length+' venda(s) · Total: '+brl(totGeral);
 }
 /* ══════════════════════════════════════════
-   GARANTIA
+   RETIRADAS NA LOJA
+══════════════════════════════════════════ */
+async function carregarRetiradas(){
+  var tbody = document.getElementById('ret-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#bbb">Carregando...</td></tr>';
+
+  var de    = document.getElementById('ret-de').value;
+  var ate   = document.getElementById('ret-ate').value;
+  var busca = document.getElementById('ret-busca').value.trim().toLowerCase();
+
+  var q = db.from('vendas')
+    .select('id,data,total_bruto,metodo_pagamento,cliente_nome,responsavel,status,observacoes,cliente_id,clientes(telefone)')
+    .ilike('metodo_pagamento','%Retirada na Loja%');
+
+  if(de)  q = q.gte('data', de+'T00:00:00');
+  if(ate) q = q.lte('data', ate+'T23:59:59');
+
+  var r = await q.order('data',{ascending:false}).limit(300);
+  if(r.error){
+    tbody.innerHTML='<tr><td colspan="7" style="color:red;padding:20px">❌ '+eh(r.error.message)+'</td></tr>';
+    return;
+  }
+
+  var dados = (r.data||[]).filter(function(v){
+    if(!busca) return true;
+    return (v.cliente_nome||'').toLowerCase().includes(busca);
+  });
+
+  if(!dados.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:32px;color:#bbb">Nenhuma retirada encontrada.</td></tr>';
+    document.getElementById('ret-resumo').textContent='';
+    return;
+  }
+
+  /* busca itens de todas as retiradas */
+  var ids = dados.map(function(v){ return v.id; });
+  var riv = await db.from('itens_venda').select('venda_id,nome_produto,quantidade,revertido').in('venda_id', ids);
+  var itensPorVenda = {};
+  (riv.data||[]).forEach(function(it){
+    if(!itensPorVenda[it.venda_id]) itensPorVenda[it.venda_id]=[];
+    itensPorVenda[it.venda_id].push(it);
+  });
+
+  /* filtra busca por produto */
+  if(busca){
+    dados = dados.filter(function(v){
+      var nomeCliente = (v.cliente_nome||'').toLowerCase();
+      if(nomeCliente.includes(busca)) return true;
+      var its = itensPorVenda[v.id]||[];
+      return its.some(function(it){ return (it.nome_produto||'').toLowerCase().includes(busca); });
+    });
+  }
+
+  var totalItens = 0;
+  tbody.innerHTML = dados.map(function(v){
+    var canc  = v.status === 'cancelada';
+    var its   = itensPorVenda[v.id]||[];
+    var ativos = its.filter(function(it){ return !it.revertido; });
+    var qtdItens = ativos.length;
+    totalItens += qtdItens;
+
+    var listaProd = ativos.slice(0,3).map(function(it){
+      return '<span style="display:inline-block;background:#ede9fe;color:#5b21b6;border-radius:4px;padding:1px 7px;font-size:.75rem;margin:1px">'+
+        eh(it.nome_produto)+(it.quantidade>1?' ×'+it.quantidade:'')+
+      '</span>';
+    }).join(' ') + (ativos.length>3 ? '<span style="font-size:.74rem;color:#888"> +mais '+(ativos.length-3)+'</span>' : '');
+
+    var rowBg = canc ? 'background:#fff5f5;opacity:.6' : 'background:#fdf4ff';
+
+    return '<tr style="border-bottom:1px solid #ede9fe;'+rowBg+'">'+
+      '<td style="padding:8px 12px;color:#888;font-size:.78rem">#'+v.id+'</td>'+
+      '<td style="padding:8px 12px;white-space:nowrap;font-size:.8rem">'+dHora(v.data)+'</td>'+
+      '<td style="padding:8px 12px">'+
+        '<div style="font-weight:600;font-size:.86rem">'+eh(v.cliente_nome||'Consumidor Final')+'</div>'+
+        (v.responsavel?'<div style="font-size:.73rem;color:#aaa">por '+eh(v.responsavel)+'</div>':'')+
+        (canc?'<div style="font-size:.72rem;color:#e74c3c;font-weight:700">❌ CANCELADA</div>':'')+
+      '</td>'+
+      '<td style="padding:8px 12px;text-align:center;color:#7c3aed;font-weight:700">'+qtdItens+'</td>'+
+      '<td style="padding:8px 12px">'+listaProd+'</td>'+
+      '<td style="padding:8px 12px;text-align:center">'+
+        (canc
+          ? '<span class="badge" style="background:#f8d7da;color:#721c24">❌ Cancelada</span>'
+          : '<span class="badge bretirada">🏪 Retirada</span>'
+        )+
+      '</td>'+
+      '<td style="padding:8px 12px;text-align:center">'+
+        '<div style="display:flex;gap:4px;justify-content:center">'+
+          '<button class="btn ba" style="padding:3px 9px;font-size:.74rem" onclick="verDetalhesRetirada('+v.id+')">📋 Ver</button>'+
+          (!canc?'<button class="btn br" style="padding:3px 9px;font-size:.74rem" onclick="verDetalhesRetirada('+v.id+')">↩️ Reverter</button>':'')+
+        '</div>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+
+  document.getElementById('ret-resumo').textContent =
+    dados.length+' retirada(s) · '+totalItens+' item(ns) no total';
+}
+
+async function verDetalhesRetirada(vendaId){
+  /* Reutiliza o modal de detalhes da venda — que já tem botão Reverter por item */
+  document.getElementById('modal-det').classList.add('ab');
+  document.getElementById('det-titulo').textContent = '🏪 Retirada #'+vendaId;
+  document.getElementById('det-body').innerHTML = '<div style="text-align:center;padding:24px;color:#aaa">Carregando...</div>';
+  document.getElementById('det-resumo').innerHTML = '';
+  document.getElementById('det-total-val').textContent = '';
+
+  var rv = await db.from('vendas').select('*').eq('id',vendaId).single();
+  var ri = await db.from('itens_venda').select('*').eq('venda_id',vendaId).order('id');
+  if(rv.error||!rv.data){ toast('Erro ao carregar retirada','er'); return; }
+
+  var v = rv.data;
+  var itens = ri.data||[];
+
+  /* Título */
+  document.getElementById('det-titulo').textContent =
+    '🏪 Retirada #'+vendaId + (v.status==='cancelada'?' — ❌ CANCELADA':'');
+
+  /* Resumo */
+  document.getElementById('det-resumo').innerHTML =
+    '<div style="background:#f3e8ff;border:1px solid #c4b5fd;border-radius:8px;padding:10px 14px;font-size:.83rem;line-height:1.9;flex:1">'+
+      '<b>📅</b> '+dHora(v.data)+'<br>'+
+      '<b>👤</b> '+eh(v.cliente_nome||'Consumidor Final')+'<br>'+
+      '<b>🏪</b> <span style="color:#5b21b6;font-weight:700">Retirada na Loja</span> — nenhum valor financeiro<br>'+
+      (v.observacoes?'<b>📝</b> '+eh(v.observacoes)+'<br>':'')+
+    '</div>';
+
+  document.getElementById('det-total-val').textContent = '— (sem valor financeiro)';
+
+  var btnAdd = document.getElementById('det-btn-add');
+  btnAdd.style.display = 'none';
+
+  /* Tabela de itens com botão reverter */
+  document.getElementById('det-body').innerHTML =
+    '<table style="width:100%;border-collapse:collapse;font-size:.84rem">'+
+    '<thead><tr style="background:#5b21b6;color:#fff">'+
+      '<th style="padding:9px 10px;text-align:left">Produto</th>'+
+      '<th style="padding:9px 10px;text-align:center">Qtd</th>'+
+      '<th style="padding:9px 10px;text-align:center;background:#7c3aed">↩️ Reverter Estoque</th>'+
+    '</tr></thead><tbody>'+
+    itens.map(function(it){
+      var rev  = it.revertido;
+      var nome = eh(it.nome_produto||it.produto_codigo||'—');
+      return '<tr style="border-bottom:1px solid #eee;'+(rev?'background:#fdf2f2':'background:#fdf4ff')+'">'+
+        '<td style="padding:8px 10px">'+
+          (rev?'<s style="color:#bbb">'+nome+'</s>':nome)+
+          (rev?'<br><span style="font-size:.72rem;color:#dc3545">↩️ Revertido em '+dHora(it.data_reversao)+'</span>':'')+
+        '</td>'+
+        '<td style="padding:8px 10px;text-align:center;font-weight:700;'+(rev?'color:#bbb;text-decoration:line-through':'color:#5b21b6')+'">'+it.quantidade+'</td>'+
+        '<td style="padding:8px 10px;text-align:center">'+
+          (rev
+            ? '<span style="font-size:.75rem;color:#dc3545;font-weight:700">↩️ Revertido</span>'
+            : '<button class="btn br" style="padding:5px 14px;font-size:.82rem;font-weight:700"'+
+              ' onclick="abrirRevQtdRetirada('+it.id+',\''+eq(it.nome_produto||'')+'\','+it.quantidade+','+vendaId+')">'+
+              '↩️ Devolver Estoque</button>'
+          )+
+        '</td>'+
+      '</tr>';
+    }).join('')+
+    '</tbody></table>';
+}
+
+function abrirRevQtdRetirada(itemId, nome, qtdMax, vendaId){
+  /* Reutiliza o modal de reversão parcial mas adaptado para retirada (sem cálculo financeiro) */
+  _revDados = {itemId, nome, qtdMax, preco:0, vendaId, desconto:0, totalAtual:0, isRetirada:true};
+
+  document.getElementById('rev-qtd').value = 1;
+  document.getElementById('rev-qtd').max   = qtdMax;
+
+  document.getElementById('rev-info').innerHTML =
+    '<b>Produto:</b> '+eh(nome)+'<br>'+
+    '<b>Qtd retirada:</b> '+qtdMax+' un.<br>'+
+    '<span style="color:#5b21b6;font-weight:700">🏪 Retirada na Loja — apenas devolve ao estoque, sem impacto financeiro.</span>';
+
+  document.getElementById('rev-preview').innerHTML =
+    '↩️ Reverter <b>'+qtdMax+' un.</b> devolve ao estoque sem alterar financeiro.';
+
+  document.getElementById('modal-rev-qtd').classList.add('ab');
+  setTimeout(function(){
+    document.getElementById('rev-qtd').focus();
+    document.getElementById('rev-qtd').select();
+  },80);
+}
+
+/* ══════════════════════════════════════════
 ══════════════════════════════════════════ */
 async function carregarGarantia(){
   var tbody = document.getElementById('gar-tbody');
@@ -3485,7 +3741,15 @@ function abrirRevQtd(itemId, nome, qtdMax, preco, vendaId, desconto, totalAtual)
 
 function atualizarPreviewReversao(){
   if(!_revDados) return;
-  var qtd      = Math.min(Math.max(1, parseInt(document.getElementById('rev-qtd').value)||1), _revDados.qtdMax);
+  var qtd = Math.min(Math.max(1, parseInt(document.getElementById('rev-qtd').value)||1), _revDados.qtdMax);
+
+  if(_revDados.isRetirada){
+    document.getElementById('rev-preview').innerHTML =
+      '↩️ Devolver <b>'+qtd+' un.</b> de '+eh(_revDados.nome)+' ao estoque.<br>'+
+      '<span style="color:#5b21b6;font-size:.82rem">Sem impacto financeiro.</span>';
+    return;
+  }
+
   var brutoIt  = _revDados.preco * qtd;
   var desc     = _revDados.desconto;
   var comDesc  = brutoIt * (1 - desc/100);
@@ -3503,8 +3767,57 @@ async function executarReversao(){
   var qtd = Math.min(Math.max(1, parseInt(document.getElementById('rev-qtd').value)||1), _revDados.qtdMax);
   document.getElementById('modal-rev-qtd').classList.remove('ab');
 
-  await reverterItemParcial(_revDados.itemId, qtd, _revDados.vendaId, _revDados.desconto, _revDados.totalAtual, _revDados.preco, _revDados.qtdMax);
+  if(_revDados.isRetirada){
+    await reverterItemRetirada(_revDados.itemId, qtd, _revDados.vendaId, _revDados.qtdMax);
+  } else {
+    await reverterItemParcial(_revDados.itemId, qtd, _revDados.vendaId, _revDados.desconto, _revDados.totalAtual, _revDados.preco, _revDados.qtdMax);
+  }
   _revDados = null;
+}
+
+async function reverterItemRetirada(itemId, qtdReverter, vendaId, qtdTotal){
+  try{
+    var qtdRestante = qtdTotal - qtdReverter;
+    var todosRev = qtdRestante <= 0;
+
+    /* Marca item como revertido (ou reduz quantidade) */
+    if(todosRev){
+      await db.from('itens_venda').update({
+        revertido: true, data_reversao: new Date().toISOString(), revertido_por: USERNAME
+      }).eq('id', itemId);
+    } else {
+      await db.from('itens_venda').update({ quantidade: qtdRestante }).eq('id', itemId);
+    }
+
+    /* Devolve estoque */
+    var ri = await db.from('itens_venda').select('produto_codigo,tipo').eq('id',itemId).single();
+    if(ri.data && ri.data.tipo==='produto' && ri.data.produto_codigo){
+      var re = await db.from('itens').select('estoque').eq('codigo',ri.data.produto_codigo).single();
+      if(re.data){
+        var novoEst = re.data.estoque + qtdReverter;
+        await db.from('itens').update({estoque: novoEst}).eq('codigo',ri.data.produto_codigo);
+        var p = _produtos.find(function(x){ return x.codigo===ri.data.produto_codigo; });
+        if(p){ p.estoque = novoEst; filtrarProdutos(); }
+      }
+      await db.from('movimentacoes').insert({
+        item_codigo: ri.data.produto_codigo, tipo:'REVERSAO_RETIRADA',
+        quantidade: qtdReverter, data: new Date().toISOString(), responsavel: USERNAME
+      });
+    }
+
+    /* Se todos os itens revertidos, cancela a retirada */
+    var rv3 = await db.from('itens_venda').select('id').eq('venda_id',vendaId).eq('revertido',false);
+    if(todosRev && (!rv3.data || rv3.data.length===0)){
+      await db.from('vendas').update({ status:'cancelada' }).eq('id', vendaId);
+    }
+
+    toast('✅ '+qtdReverter+' un. devolvida(s) ao estoque!','ok');
+    verDetalhesRetirada(vendaId);
+    carregarRetiradas();
+  }catch(e){
+    toast('❌ Erro: '+e.message,'er');
+    console.error(e);
+  }
 }
 
 async function reverterItemParcial(itemId, qtdReverter, vendaId, desconto, totalAtual, preco, qtdTotal){
